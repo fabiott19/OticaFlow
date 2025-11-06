@@ -1,675 +1,536 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Ótica Flow — Controle de Vendas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Tailwind via CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Ótica Flow — Vendas (v6 - HTML)</title>
   <style>
-    @media print {
-      .print\:hidden { display: none !important; }
-      header, .no-print { display: none !important; }
-      table { font-size: 12px; }
+    :root{ --bg:#fafafa; --card:#fff; --line:#e5e5e5; --muted:#666; --primary:#0b6; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:#f7f7f7;color:#222}
+    .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
+    h1{margin:0 0 4px}
+    .sub{margin:0 0 16px;color:#555}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .grid{display:grid;gap:12px}
+    .grid-2{grid-template-columns:1fr 1fr}
+    label{display:block;font-size:12px;color:#444;margin:0 0 6px}
+    input[type="text"], input[type="date"], input[type="number"], select, textarea{
+      width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;outline:none
     }
+    textarea{resize:vertical}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{padding:10px 14px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#333;cursor:pointer}
+    .btn.primary{border-color:var(--primary);background:var(--primary);color:#fff;font-weight:600}
+    .btn.ghost{background:#fff}
+    .btn.mini{padding:6px 8px;border-radius:6px}
+    .btn.danger{border-color:#f33;color:#c00}
+    table{width:100%;border-collapse:collapse}
+    thead tr{background:#f8f8f8}
+    th,td{text-align:left;padding:8px 10px;border-top:1px solid #eee;font-size:14px;vertical-align:top}
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .stat{background:var(--card);border:1px solid #eee;border-radius:10px;padding:12px}
+    .stat .label{color:#666;font-size:12px;margin-bottom:6px}
+    .stat .value{font-weight:700;font-size:18px}
+    .tips{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+    .tips button{width:100%;text-align:left;padding:12px 14px;background:#f6fbff;border:0;cursor:pointer;font-weight:600}
+    .muted{color:#777}
+    .pay-grid{display:grid;grid-template-columns:180px 160px 1fr auto;gap:8px;align-items:end}
+    .pay-grid .head{font-size:12px;color:#444;margin-bottom:6px}
+    .tag{display:inline-block;background:#eef;border:1px solid #ccd;border-radius:6px;padding:2px 6px;margin:2px 4px 0 0;font-size:12px}
+    @media (max-width:900px){ .pay-grid{grid-template-columns:1fr 1fr 1fr auto} }
+    @media (max-width:800px){ .grid-2{grid-template-columns:1fr} .stats{grid-template-columns:1fr 1fr} }
+    @media (max-width:520px){ .stats{grid-template-columns:1fr} .pay-grid{grid-template-columns:1fr 1fr; } }
   </style>
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 p-6">
-  <div class="max-w-7xl mx-auto space-y-6">
-    <!-- Header -->
-    <header class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <div class="flex items-center gap-3">
-        <img id="logoImg" alt="Logo Ótica Flow" class="h-10 w-auto rounded-md bg-white p-1 shadow hidden" />
-        <div id="logoFallback" class="h-10 w-10 rounded-md bg-white grid place-items-center shadow text-slate-400 text-sm">LOGO</div>
-        <div>
-          <h1 class="text-2xl font-semibold">Ótica Flow · Controle de Vendas</h1>
-          <p class="text-sm text-slate-600">OS com múltiplos itens, pagamentos parciais e relatório mensal.</p>
+<body>
+  <div class="wrap">
+    <h1>Ótica Flow — Vendas (v6 - HTML)</h1>
+    <p class="sub">Pagamentos múltiplos por venda • Parcelamento no crédito • “Recebido total” • “Lucro” automático • Edição e CSV • Migração</p>
+
+    <!-- Formulário -->
+    <form id="form" class="card grid grid-2">
+      <div>
+        <label for="data">Data</label>
+        <input id="data" type="date" required />
+      </div>
+
+      <div>
+        <label for="cliente">Cliente</label>
+        <input id="cliente" type="text" placeholder="Nome do cliente" />
+      </div>
+
+      <div style="grid-column:1/-1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <label style="margin:0;font-weight:600">Pagamentos (pode dividir em vários métodos)</label>
+          <button class="btn mini" type="button" id="addPay">+ Adicionar método</button>
+        </div>
+        <div class="pay-grid" id="payHead">
+          <div class="head">Forma</div>
+          <div class="head">Parcelamento</div>
+          <div class="head">Valor recebido</div>
+          <div class="head"></div>
+        </div>
+        <div id="payList"></div>
+        <div style="margin-top:8px;color:#555;font-size:13px">
+          <b>Recebido total:</b> <span id="recebidoTotal">R$ 0,00</span>
         </div>
       </div>
 
-      <div class="flex flex-wrap gap-2 items-center">
-        <label class="text-sm">Mês:</label>
-        <select id="monthSelect" class="border rounded-lg px-3 py-2 bg-white"></select>
-
-        <button id="toggleReportBtn" class="px-3 py-2 rounded-lg border hover:bg-white">Ver relatório do mês</button>
-
-        <label class="ml-2 inline-flex items-center gap-2 text-sm">
-          <input id="pendingOnlyChk" type="checkbox" /> Mostrar pendentes
-        </label>
-
-        <label class="ml-2 text-sm print:hidden">
-          <span class="mr-2">Logo:</span>
-          <input id="logoInput" type="file" accept="image/*" />
-        </label>
-
-        <button id="printBtn" class="px-3 py-2 rounded-lg bg-slate-900 text-white hover:opacity-90 print:hidden">Imprimir</button>
-        <button id="exportCsvBtn" class="px-3 py-2 rounded-lg bg-indigo-600 text-white hover:opacity-90 print:hidden">Exportar CSV</button>
+      <div>
+        <label for="valorVenda">Valor da venda (bruto)</label>
+        <input id="valorVenda" type="number" step="0.01" placeholder="0,00" />
       </div>
-    </header>
 
-    <!-- Painel de Resumo (mês) -->
-    <section id="summaryPanel" class="bg-white rounded-2xl shadow p-4">
-      <h2 class="font-medium mb-3">Resumo do mês <span id="summaryMonth"></span></h2>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-        <div class="rounded-xl border p-3">
-          <div class="text-slate-500">Soma dos custos</div>
-          <div id="sumCost" class="font-semibold">R$ 0,00</div>
-        </div>
-        <div class="rounded-xl border p-3">
-          <div class="text-slate-500">Soma das vendas</div>
-          <div id="sumSales" class="font-semibold">R$ 0,00</div>
-        </div>
-        <div class="rounded-xl border p-3">
-          <div class="text-slate-500">Soma das taxas</div>
-          <div id="sumFees" class="font-semibold">R$ 0,00</div>
-        </div>
-        <div class="rounded-xl border p-3">
-          <div class="text-slate-500">Total recebido</div>
-          <div id="totalPaid" class="font-semibold">R$ 0,00</div>
-        </div>
+      <div>
+        <label for="custo">Custo</label>
+        <input id="custo" type="number" step="0.01" placeholder="0,00" />
       </div>
-      <div class="mt-4 text-sm">
-        <h3 class="font-semibold mb-1">Subtotais por forma de pagamento</h3>
-        <ul id="payMethodList" class="list-disc pl-5 space-y-1"></ul>
+
+      <div>
+        <label for="lucro">Lucro (automático)</label>
+        <input id="lucro" type="text" readonly />
       </div>
-    </section>
 
-    <!-- Form Nova OS -->
-    <section id="formSection" class="grid md:grid-cols-2 gap-6">
-      <form id="orderForm" class="bg-white rounded-2xl shadow p-4 space-y-4">
-        <h2 class="font-medium">Nova OS</h2>
+      <div style="grid-column:1/-1">
+        <label for="obs">Observação</label>
+        <textarea id="obs" rows="2" placeholder="Notas da venda, nº da OS, etc."></textarea>
+      </div>
 
-        <div class="grid grid-cols-2 gap-3">
-          <label class="text-sm w-full">
-            Nº da OS
-            <input id="osNumber" class="w-full mt-1 border rounded-lg px-3 py-2" required />
-          </label>
-          <label class="text-sm w-full">
-            Data
-            <input id="osDate" type="date" class="w-full mt-1 border rounded-lg px-3 py-2" required />
-          </label>
-        </div>
+      <div style="grid-column:1/-1" class="row">
+        <button class="btn primary" type="submit" id="btnSubmit">Adicionar venda</button>
+        <button class="btn ghost" type="button" id="btnCancel" style="display:none">Cancelar edição</button>
+        <button class="btn ghost" type="button" id="btnCSV">Exportar CSV</button>
+      </div>
+    </form>
 
-        <div>
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-medium">Itens da OS</h3>
-            <button id="addItemBtn" type="button" class="text-emerald-700 hover:underline text-sm">+ Adicionar item</button>
-          </div>
-          <div id="itemsContainer" class="mt-2 space-y-2"></div>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3">
-          <label class="text-sm w-full">
-            Valor total da venda (R$)
-            <input id="totalSale" type="number" step="0.01" min="0" class="w-full mt-1 border rounded-lg px-3 py-2" />
-          </label>
-          <label class="text-sm w-full">
-            Taxa da operadora (valor)
-            <input id="feeValue" type="number" step="0.01" min="0" class="w-full mt-1 border rounded-lg px-3 py-2" />
-          </label>
-          <label class="text-sm w-full">
-            Observações do pagamento (opcional)
-            <input id="paymentNote" class="w-full mt-1 border rounded-lg px-3 py-2" placeholder="ex: metade agora, metade na retirada" />
-          </label>
-        </div>
-
-        <label class="text-sm w-full">
-          Observações da OS (opcional)
-          <textarea id="osNotes" class="w-full mt-1 border rounded-lg px-3 py-2" rows="2"></textarea>
-        </label>
-
-        <div class="flex gap-2">
-          <button id="saveOrderBtn" type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:opacity-90">Adicionar OS</button>
-          <button id="clearFormBtn" type="button" class="px-4 py-2 rounded-xl border">Limpar</button>
-        </div>
-      </form>
-
-      <!-- Dicas + Impressão rápida -->
-      <div class="bg-white rounded-2xl shadow p-4 space-y-3">
-        <h2 class="font-medium">Dicas rápidas</h2>
-        <ul class="list-disc pl-5 text-sm space-y-1">
-          <li>Deixe o valor da taxa já com o desconto aplicado (sem cálculo automático).</li>
-          <li>Para OS pendentes, não adicione pagamento agora. Depois, use <em>Adicionar pagamento</em> no relatório.</li>
-          <li>Você pode editar uma OS já lançada clicando em <em>Editar</em> na tabela do relatório.</li>
-        </ul>
-        <button id="goReportBtn" class="mt-2 px-3 py-2 rounded-lg border hover:bg-white">Ver relatório do mês</button>
+    <!-- Resumo -->
+    <section style="margin-top:16px">
+      <h3 style="margin:12px 0">Resumo</h3>
+      <div class="stats">
+        <div class="stat"><div class="label">Vendas (bruto)</div><div class="value" id="sumVendas">R$ 0,00</div></div>
+        <div class="stat"><div class="label">Recebido (total)</div><div class="value" id="sumRecebido">R$ 0,00</div></div>
+        <div class="stat"><div class="label">Custo</div><div class="value" id="sumCusto">R$ 0,00</div></div>
+        <div class="stat"><div class="label">Lucro</div><div class="value" id="sumLucro">R$ 0,00</div></div>
       </div>
     </section>
 
-    <!-- Relatório -->
-    <section id="reportSection" class="bg-white rounded-2xl shadow p-4 print:shadow-none hidden">
-      <div class="flex items-center gap-3">
-        <img id="logoImgReport" class="h-10 w-auto rounded bg-white p-1 shadow hidden" />
-        <div>
-          <h2 class="text-xl font-semibold">Relatório mensal — <span id="reportMonthTitle"></span></h2>
-          <p class="text-sm text-slate-600">Soma de custos, vendas, taxas e total recebido.</p>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto mt-4">
-        <table class="w-full text-sm">
+    <!-- Lista -->
+    <section style="margin-top:16px">
+      <h3 style="margin:12px 0">Vendas lançadas</h3>
+      <div id="empty" class="card muted" style="display:none">Sem registros ainda.</div>
+      <div class="card" id="tableWrap" style="padding:0;overflow:auto;display:none">
+        <table>
           <thead>
-            <tr class="text-left border-b">
-              <th class="py-2 pr-3">Data</th>
-              <th class="py-2 pr-3">Nº OS</th>
-              <th class="py-2 pr-3">Itens</th>
-              <th class="py-2 pr-3">Custo total</th>
-              <th class="py-2 pr-3">Venda</th>
-              <th class="py-2 pr-3">Taxa</th>
-              <th class="py-2 pr-3">Recebido</th>
-              <th class="py-2 pr-3">Restante</th>
-              <th class="py-2 pr-3">Status</th>
-              <th class="py-2 pr-3 print:hidden">Ações</th>
+            <tr>
+              <th>Data</th>
+              <th>Cliente</th>
+              <th>Pagamento(s)</th>
+              <th>Venda</th>
+              <th>Recebido</th>
+              <th>Custo</th>
+              <th>Lucro</th>
+              <th></th>
             </tr>
           </thead>
-          <tbody id="reportTbody"></tbody>
+          <tbody id="tbody"></tbody>
         </table>
       </div>
-
-      <footer class="mt-6 text-sm">
-        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div class="rounded-xl border p-3">
-            <div class="text-slate-500">TOTAL CUSTOS</div>
-            <div id="tCost" class="font-semibold">R$ 0,00</div>
-          </div>
-          <div class="rounded-xl border p-3">
-            <div class="text-slate-500">TOTAL VENDAS</div>
-            <div id="tSales" class="font-semibold">R$ 0,00</div>
-          </div>
-          <div class="rounded-xl border p-3">
-            <div class="text-slate-500">TOTAL TAXAS</div>
-            <div id="tFees" class="font-semibold">R$ 0,00</div>
-          </div>
-          <div class="rounded-xl border p-3">
-            <div class="text-slate-500">TOTAL RECEBIDO</div>
-            <div id="tPaid" class="font-semibold">R$ 0,00</div>
-          </div>
-        </div>
-        <div class="mt-4 print:hidden">
-          <button id="printReportBtn" class="px-4 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90">Imprimir relatório</button>
-          <button id="backToFormBtn" class="px-4 py-2 rounded-xl border ml-2">Voltar ao cadastro</button>
-        </div>
-      </footer>
     </section>
-  </div>
 
-  <!-- Modal editar OS -->
-  <div id="editModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center no-print">
-    <div class="bg-white rounded-2xl shadow p-4 w-full max-w-2xl">
-      <h3 class="text-lg font-semibold mb-3">Editar OS</h3>
-      <form id="editForm" class="space-y-3">
-        <div class="grid grid-cols-2 gap-3">
-          <label class="text-sm w-full">
-            Nº da OS
-            <input id="editOsNumber" class="w-full mt-1 border rounded-lg px-3 py-2" required />
-          </label>
-          <label class="text-sm w-full">
-            Data
-            <input id="editOsDate" type="date" class="w-full mt-1 border rounded-lg px-3 py-2" required />
-          </label>
+    <!-- Dicas rápidas -->
+    <section style="margin:20px 0 40px">
+      <div class="tips">
+        <button id="tipsToggle">💡 Dicas rápidas ▼</button>
+        <div id="tipsBody" style="display:none;padding:12px;background:#fff">
+          <ul style="margin:0;padding-left:18px;line-height:1.6">
+            <li>Use <b>“+ Adicionar método”</b> para dividir em dois cartões, ou combinar <b>PIX</b> + <b>Crédito</b>, etc.</li>
+            <li>Parcelamento só aparece quando a forma é <b>Crédito</b> (À vista, 2x–10x).</li>
+            <li><b>Recebido total</b> = soma dos métodos. <b>Lucro</b> = recebido total − custo.</li>
+            <li>“Exportar CSV” gera um arquivo com os pagamentos detalhados em uma coluna.</li>
+          </ul>
         </div>
-
-        <div>
-          <div class="flex items-center justify-between">
-            <h4 class="text-sm font-medium">Itens da OS</h4>
-            <button id="editAddItemBtn" type="button" class="text-emerald-700 hover:underline text-sm">+ Adicionar item</button>
-          </div>
-          <div id="editItemsContainer" class="mt-2 space-y-2"></div>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3">
-          <label class="text-sm w-full">
-            Valor total da venda (R$)
-            <input id="editTotalSale" type="number" step="0.01" min="0" class="w-full mt-1 border rounded-lg px-3 py-2" />
-          </label>
-          <label class="text-sm w-full">
-            Taxa da operadora (valor)
-            <input id="editFeeValue" type="number" step="0.01" min="0" class="w-full mt-1 border rounded-lg px-3 py-2" />
-          </label>
-          <label class="text-sm w-full">
-            Observações do pagamento (opcional)
-            <input id="editPaymentNote" class="w-full mt-1 border rounded-lg px-3 py-2" />
-          </label>
-        </div>
-
-        <label class="text-sm w-full">
-          Observações da OS (opcional)
-          <textarea id="editNotes" class="w-full mt-1 border rounded-lg px-3 py-2" rows="2"></textarea>
-        </label>
-
-        <div class="flex gap-2 justify-end">
-          <button id="closeEditBtn" type="button" class="px-4 py-2 rounded-xl border">Cancelar</button>
-          <button id="saveEditBtn" type="submit" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Salvar alterações</button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </section>
   </div>
 
   <script>
-    // ========= Helpers =========
-    const STORAGE_KEY = "otica_flow_orders_html_v1";
-    const SETTINGS_KEY = "otica_flow_settings_html_v1";
+    /********* Config *********/
+    const STORAGE_KEY_V5 = "otica_flow_orders_v5"; // mantemos a mesma chave e migramos o shape
+    const LEGACY_KEYS = ["otica_flow_orders_v4", "otica_flow_orders_v3"];
 
-    const $ = (sel) => document.querySelector(sel);
-    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+    /********* Utils *********/
+    const $ = (id) => document.getElementById(id);
+    const currency = (n) => Number(n||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+    function parseNum(v){ if (v === "" || v == null) return 0; const n = Number(String(v).replace(",", ".")); return isFinite(n) ? n : 0; }
+    function todayISO(){ return new Date().toISOString().slice(0,10); }
+    function uuid(){ return crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now(); }
 
-    const currency = (n) => Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-    const monthKey = (dateStr) => {
-      const d = new Date(dateStr);
-      if (isNaN(d)) return "";
-      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-    };
-    const sum = (arr, sel) => arr.reduce((acc, x) => acc + Number(sel ? sel(x) : x || 0), 0);
-
-    // ========= Estado =========
-    let orders = []; // { id, osNumber, date, items:[{id,name,cost}], totalSale, feeValue, payments:[{id,method,amount,date}], paymentNote, notes }
-    let settings = { logoDataUrl: "" };
-    let selectedMonth = (() => {
-      const now = new Date();
-      return now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
-    })();
-    let showReport = false;
-    let filterPendingOnly = false;
-
-    // ========= Init =========
-    function load() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) orders = JSON.parse(raw);
-        const rawS = localStorage.getItem(SETTINGS_KEY);
-        if (rawS) settings = JSON.parse(rawS);
-      } catch (e) {}
-    }
-    function save() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    }
-
-    function monthsAvailable() {
-      const set = new Set(orders.map(o => monthKey(o.date)));
-      set.add(selectedMonth);
-      return Array.from(set).filter(Boolean).sort();
-    }
-
-    function getPaid(o) { return sum(o.payments || [], p => p.amount); }
-    function getRemaining(o) { return Number(o.totalSale || 0) - getPaid(o); }
-    function getStatus(o) {
-      const r = getRemaining(o);
-      if (r <= 0.001) return "Pago";
-      if (getPaid(o) > 0) return "Parcial";
-      return "Pendente";
-    }
-
-    // ========= UI: Logo =========
-    function renderLogo() {
-      const img = $("#logoImg");
-      const img2 = $("#logoImgReport");
-      const fb = $("#logoFallback");
-      if (settings.logoDataUrl) {
-        img.src = settings.logoDataUrl;
-        img.classList.remove("hidden");
-        img2.src = settings.logoDataUrl;
-        img2.classList.remove("hidden");
-        fb.classList.add("hidden");
+    /********* Migração *********
+     * v5 -> v6: introduz 'pagamentos' (array).
+     * Regras:
+     * - Se já existir 'pagamentos' (array), mantém.
+     * - Senão, cria a partir de (pagamento.forma, pagamento.parcelamento, recebido).
+     * - recebidoTotal = soma dos pagamentos (se não houver, usa o antigo 'recebido').
+     * - lucro = recebidoTotal - custo
+     */
+    function normalizePagamentos(o){
+      if (Array.isArray(o.pagamentos) && o.pagamentos.length){
+        // garante shape e soma
+        const clean = o.pagamentos.map(p=>({
+          forma: ["Crédito","Débito","PIX","Dinheiro"].includes(p.forma) ? p.forma : "Dinheiro",
+          parcelamento: p.forma === "Crédito" ? (p.parcelamento || "À vista") : "",
+          valor: parseNum(p.valor)
+        }));
+        return clean;
       } else {
-        img.classList.add("hidden");
-        img2.classList.add("hidden");
-        fb.classList.remove("hidden");
+        const forma = (o?.pagamento?.forma && ["Crédito","Débito","PIX","Dinheiro"].includes(o.pagamento.forma)) ? o.pagamento.forma : "Dinheiro";
+        const parcel = forma === "Crédito" ? (o?.pagamento?.parcelamento || "À vista") : "";
+        const recebido = parseNum(o.recebido ?? 0);
+        // se não houver recebido mas houver taxa antiga, tenta derivar
+        let valor = recebido;
+        if (!valor && o.taxa != null){
+          const total = parseNum(o.valorVenda ?? o.total ?? 0);
+          valor = total - parseNum(o.taxa);
+        }
+        return [{ forma, parcelamento: parcel, valor }];
       }
     }
 
-    $("#logoInput").addEventListener("change", (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => { settings.logoDataUrl = reader.result; save(); renderLogo(); };
-      reader.readAsDataURL(file);
-    });
+    function migrateOrderToV6(o){
+      const valorVenda = parseNum(o.valorVenda ?? o.total ?? 0);
+      const custo = parseNum(o.custo ?? 0);
+      const pagamentos = normalizePagamentos(o);
+      const recebidoTotal = pagamentos.reduce((s,p)=>s + parseNum(p.valor), 0);
+      const lucro = recebidoTotal - custo;
 
-    // ========= UI: Form Nova OS =========
-    const itemsContainer = $("#itemsContainer");
-    function addItemRow(container, data={name:"", cost:""}) {
-      const row = document.createElement("div");
-      row.className = "grid grid-cols-12 gap-2";
-      row.innerHTML = `
-        <input class="col-span-8 border rounded-lg px-3 py-2 name" placeholder="Produto" value="${data.name || ""}" />
-        <input type="number" step="0.01" min="0" class="col-span-3 border rounded-lg px-3 py-2 cost" placeholder="Custo (R$)" value="${data.cost ?? ""}" />
-        <button type="button" class="col-span-1 text-rose-600 hover:underline remove">Remover</button>
-      `;
-      row.querySelector(".remove").addEventListener("click", () => row.remove());
-      container.appendChild(row);
-    }
-
-    $("#addItemBtn").addEventListener("click", () => addItemRow(itemsContainer));
-
-    $("#clearFormBtn").addEventListener("click", () => resetForm());
-
-    function resetForm() {
-      $("#osNumber").value = "";
-      $("#osDate").value = new Date().toISOString().slice(0,10);
-      $("#totalSale").value = "";
-      $("#feeValue").value = "";
-      $("#paymentNote").value = "";
-      $("#osNotes").value = "";
-      itemsContainer.innerHTML = "";
-      addItemRow(itemsContainer);
-    }
-
-    $("#orderForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const osNumber = $("#osNumber").value.trim();
-      const date = $("#osDate").value;
-      if (!osNumber || !date) return;
-      const items = $$("#itemsContainer .grid").map(row => {
-        const name = row.querySelector(".name").value.trim();
-        const cost = Number(row.querySelector(".cost").value || 0);
-        return name ? { id: crypto.randomUUID(), name, cost } : null;
-      }).filter(Boolean);
-
-      const order = {
-        id: crypto.randomUUID(),
-        osNumber,
-        date,
-        items,
-        totalSale: Number($("#totalSale").value || 0),
-        feeValue: Number($("#feeValue").value || 0),
-        payments: [],
-        paymentNote: $("#paymentNote").value.trim(),
-        notes: $("#osNotes").value.trim(),
+      return {
+        id: o.id || uuid(),
+        data: o.data || todayISO(),
+        cliente: o.cliente || "",
+        observacao: o.observacao || "",
+        itens: Array.isArray(o.itens) ? o.itens : [],
+        pagamentos,            // novo shape
+        valorVenda,
+        recebido: recebidoTotal, // mantemos 'recebido' como total para compatibilidade
+        custo,
+        lucro
       };
-      orders.unshift(order);
-      save();
-      refreshAll();
+    }
+
+    function loadOrders(){
+      // tenta v5 (ou já v6)
+      const raw = localStorage.getItem(STORAGE_KEY_V5);
+      if (raw){
+        try{
+          const arr = JSON.parse(raw);
+          return Array.isArray(arr) ? arr.map(migrateOrderToV6) : [];
+        }catch{}
+      }
+      // tenta legado
+      for (const k of LEGACY_KEYS){
+        const lg = localStorage.getItem(k);
+        if (lg){
+          try{
+            const arr = JSON.parse(lg);
+            const migrated = Array.isArray(arr) ? arr.map(migrateOrderToV6) : [];
+            localStorage.setItem(STORAGE_KEY_V5, JSON.stringify(migrated));
+            return migrated;
+          }catch{}
+        }
+      }
+      return [];
+    }
+    function saveOrders(orders){ localStorage.setItem(STORAGE_KEY_V5, JSON.stringify(orders)); }
+
+    /********* Estado *********/
+    let orders = [];
+    let editingId = null;
+
+    /********* Pagamentos (UI dinâmico) *********/
+    const payList = $("payList");
+    const formaOpts = ["Crédito","Débito","PIX","Dinheiro"];
+    const parcelOpts = ["À vista", ...Array.from({length:9}, (_,i)=>`${i+2}x`)];
+
+    function addPaymentRow(p = { forma:"Dinheiro", parcelamento:"", valor:"" }){
+      const rowId = uuid();
+      const wrap = document.createElement("div");
+      wrap.className = "pay-grid";
+      wrap.dataset.rowId = rowId;
+
+      // Forma
+      const selForma = document.createElement("select");
+      for (const f of formaOpts){
+        const op = document.createElement("option"); op.value=f; op.textContent=f; selForma.appendChild(op);
+      }
+      selForma.value = p.forma || "Dinheiro";
+
+      // Parcelamento
+      const selParc = document.createElement("select");
+      function refillParc(){
+        selParc.innerHTML = "";
+        if (selForma.value === "Crédito"){
+          for (const x of parcelOpts){
+            const op = document.createElement("option"); op.value=x; op.textContent=x; selParc.appendChild(op);
+          }
+          selParc.disabled = false; selParc.style.background="#fff";
+          selParc.value = p.parcelamento || "À vista";
+        } else {
+          const op = document.createElement("option"); op.value = ""; op.textContent = "—";
+          selParc.appendChild(op);
+          selParc.disabled = true; selParc.style.background="#f2f2f2";
+        }
+      }
+
+      // Valor
+      const inpValor = document.createElement("input");
+      inpValor.type="number"; inpValor.step="0.01"; inpValor.placeholder="0,00";
+      inpValor.value = p.valor ?? "";
+
+      // Remover
+      const btnDel = document.createElement("button");
+      btnDel.type="button"; btnDel.className="btn mini danger"; btnDel.textContent="Remover";
+      btnDel.addEventListener("click", ()=>{
+        wrap.remove();
+        updateRecebidoAndLucro();
+      });
+
+      // Eventos
+      selForma.addEventListener("change", ()=>{ refillParc(); updateRecebidoAndLucro(); });
+      selParc.addEventListener("change", ()=>{ updateRecebidoAndLucro(); });
+      inpValor.addEventListener("input", ()=>{ updateRecebidoAndLucro(); });
+
+      // Monta
+      refillParc();
+      wrap.appendChild(selForma);
+      wrap.appendChild(selParc);
+      wrap.appendChild(inpValor);
+      wrap.appendChild(btnDel);
+      payList.appendChild(wrap);
+
+      updateRecebidoAndLucro();
+    }
+
+    function getPaymentsFromUI(){
+      const rows = Array.from(payList.querySelectorAll(".pay-grid"));
+      return rows.map(r=>{
+        const [selForma, selParc, inpValor] = r.querySelectorAll("select, input");
+        const forma = selForma.value;
+        const parcelamento = (forma === "Crédito") ? selParc.value : "";
+        const valor = parseNum(inpValor.value);
+        return { forma, parcelamento, valor };
+      }).filter(p=>p.valor>0 || p.forma); // mantém linha mesmo com 0 para edição
+    }
+
+    /********* Render / Resumo / Tabela *********/
+    const sumVendas = $("sumVendas");
+    const sumRecebido = $("sumRecebido");
+    const sumCusto = $("sumCusto");
+    const sumLucro = $("sumLucro");
+    const tbody = $("tbody");
+    const tableWrap = $("tableWrap");
+    const empty = $("empty");
+    const recebidoTotalEl = $("recebidoTotal");
+
+    function pagamentosResumoStr(pagamentos){
+      if (!Array.isArray(pagamentos) || !pagamentos.length) return "—";
+      // Ex.: "Crédito (2x): R$ 300,00 • PIX: R$ 200,00"
+      return pagamentos.map(p=>{
+        const parc = p.forma === "Crédito" ? ` (${p.parcelamento||"À vista"})` : "";
+        return `${p.forma}${parc}: ${currency(p.valor)}`;
+      }).join(" • ");
+    }
+
+    function render(){
+      const totals = orders.reduce((acc,o)=>{
+        acc.vendas += Number(o.valorVenda||0);
+        acc.recebido += Number(o.recebido||0);
+        acc.custo += Number(o.custo||0);
+        acc.lucro += Number((typeof o.lucro==="number")? o.lucro : (o.recebido||0)-(o.custo||0));
+        return acc;
+      },{vendas:0,recebido:0,custo:0,lucro:0});
+      sumVendas.textContent = currency(totals.vendas);
+      sumRecebido.textContent = currency(totals.recebido);
+      sumCusto.textContent = currency(totals.custo);
+      sumLucro.textContent = currency(totals.lucro);
+
+      tbody.innerHTML = "";
+      if (orders.length === 0){
+        empty.style.display = "";
+        tableWrap.style.display = "none";
+      } else {
+        empty.style.display = "none";
+        tableWrap.style.display = "";
+        for (const o of orders){
+          const tr = document.createElement("tr");
+          const payStr = pagamentosResumoStr(o.pagamentos);
+          tr.innerHTML = `
+            <td>${o.data || ""}</td>
+            <td>${(o.cliente || "").replaceAll("<","&lt;")}</td>
+            <td>${payStr}</td>
+            <td>${currency(o.valorVenda)}</td>
+            <td>${currency(o.recebido)}</td>
+            <td>${currency(o.custo)}</td>
+            <td style="font-weight:600">${currency(o.lucro ?? ((o.recebido||0)-(o.custo||0)))}</td>
+            <td style="white-space:nowrap">
+              <button class="btn mini" data-edit="${o.id}">Editar</button>
+              <button class="btn mini danger" data-del="${o.id}">Excluir</button>
+            </td>`;
+          tbody.appendChild(tr);
+        }
+      }
+    }
+
+    /********* Form helpers *********/
+    const dataEl = $("data");
+    const clienteEl = $("cliente");
+    const valorEl = $("valorVenda");
+    const custoEl = $("custo");
+    const lucroEl = $("lucro");
+    const obsEl = $("obs");
+    const btnSubmit = $("btnSubmit");
+    const btnCancel = $("btnCancel");
+
+    function resetForm(){
+      editingId = null;
+      dataEl.value = todayISO();
+      clienteEl.value = "";
+      obsEl.value = "";
+      valorEl.value = "";
+      custoEl.value = "";
+      lucroEl.value = currency(0);
+      payList.innerHTML = "";
+      addPaymentRow(); // começa com uma linha
+      btnSubmit.textContent = "Adicionar venda";
+      btnCancel.style.display = "none";
+      window.scrollTo({top:0,behavior:"smooth"});
+    }
+
+    function updateRecebidoAndLucro(){
+      const pagamentos = getPaymentsFromUI();
+      const recebidoTotal = pagamentos.reduce((s,p)=>s+parseNum(p.valor),0);
+      recebidoTotalEl.textContent = currency(recebidoTotal);
+      const lucro = recebidoTotal - parseNum(custoEl.value);
+      lucroEl.value = currency(lucro);
+    }
+
+    function loadToEdit(o){
+      editingId = o.id;
+      dataEl.value = o.data || todayISO();
+      clienteEl.value = o.cliente || "";
+      obsEl.value = o.observacao || "";
+      valorEl.value = o.valorVenda ?? "";
+      custoEl.value = o.custo ?? "";
+
+      payList.innerHTML = "";
+      const pays = Array.isArray(o.pagamentos) && o.pagamentos.length ? o.pagamentos : [{ forma:"Dinheiro", parcelamento:"", valor:o.recebido||0 }];
+      for (const p of pays){ addPaymentRow({ forma:p.forma, parcelamento:p.parcelamento, valor:p.valor }); }
+
+      updateRecebidoAndLucro();
+      btnSubmit.textContent = "Salvar alterações";
+      btnCancel.style.display = "";
+      window.scrollTo({top:0,behavior:"smooth"});
+    }
+
+    /********* Init *********/
+    $("addPay").addEventListener("click", ()=> addPaymentRow());
+
+    $("form").addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const pagamentos = getPaymentsFromUI();
+      const recebidoTotal = pagamentos.reduce((s,p)=>s + parseNum(p.valor), 0);
+
+      const record = {
+        id: editingId || uuid(),
+        data: dataEl.value || todayISO(),
+        cliente: clienteEl.value || "",
+        observacao: obsEl.value || "",
+        itens: [],
+        pagamentos,
+        valorVenda: parseNum(valorEl.value),
+        recebido: recebidoTotal,          // compat total
+        custo: parseNum(custoEl.value),
+      };
+      record.lucro = record.recebido - record.custo;
+
+      if (editingId){
+        orders = orders.map(o => o.id === editingId ? record : o);
+      } else {
+        orders = [record, ...orders];
+      }
+      saveOrders(orders);
+      render();
       resetForm();
     });
 
-    // ========= Report / Resumo =========
-    function applyMonthOptions() {
-      const sel = $("#monthSelect");
-      sel.innerHTML = "";
-      monthsAvailable().forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m; opt.textContent = m;
-        if (m === selectedMonth) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    }
+    btnCancel.addEventListener("click", resetForm);
 
-    function monthlyOrders() {
-      const base = orders.filter(o => monthKey(o.date) === selectedMonth);
-      return filterPendingOnly ? base.filter(o => getRemaining(o) > 0.001) : base;
-    }
-
-    function renderSummary() {
-      $("#summaryMonth").textContent = selectedMonth;
-      const list = monthlyOrders();
-      const sumCost = sum(list, o => sum(o.items, it => it.cost));
-      const sumSales = sum(list, o => o.totalSale);
-      const sumFees = sum(list, o => o.feeValue);
-      const totalPaid = sum(list, o => getPaid(o));
-
-      $("#sumCost").textContent = currency(sumCost);
-      $("#sumSales").textContent = currency(sumSales);
-      $("#sumFees").textContent = currency(sumFees);
-      $("#totalPaid").textContent = currency(totalPaid);
-
-      // Subtotais por meio de pagamento
-      const summary = {};
-      list.forEach(o => (o.payments||[]).forEach(p => {
-        summary[p.method] = (summary[p.method] || 0) + Number(p.amount || 0);
-      }));
-      const ul = $("#payMethodList");
-      ul.innerHTML = "";
-      Object.entries(summary).forEach(([m,v]) => {
-        const li = document.createElement("li");
-        li.textContent = `${m}: ${currency(v)}`;
-        ul.appendChild(li);
-      });
-    }
-
-    function renderReport() {
-      $("#reportMonthTitle").textContent = selectedMonth;
-      const tbody = $("#reportTbody");
-      const list = monthlyOrders();
-      tbody.innerHTML = "";
-
-      if (list.length === 0) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td class="py-6 text-center text-slate-500" colspan="10">Sem registros para este filtro.</td>`;
-        tbody.appendChild(tr);
+    $("tbody").addEventListener("click", (e)=>{
+      const editId = e.target.getAttribute("data-edit");
+      const delId  = e.target.getAttribute("data-del");
+      if (editId){
+        const o = orders.find(x=>x.id === editId);
+        if (o) loadToEdit(o);
+      } else if (delId){
+        if (confirm("Excluir esta venda?")){
+          orders = orders.filter(x=>x.id !== delId);
+          saveOrders(orders);
+          render();
+        }
       }
-
-      list.forEach(o => {
-        const cost = sum(o.items, it => it.cost);
-        const paid = getPaid(o);
-        const remaining = getRemaining(o);
-        const status = getStatus(o);
-
-        const tr = document.createElement("tr");
-        tr.className = "border-b align-top";
-        tr.innerHTML = `
-          <td class="py-2 pr-3 whitespace-nowrap">${new Date(o.date).toLocaleDateString("pt-BR")}</td>
-          <td class="py-2 pr-3">${o.osNumber}</td>
-          <td class="py-2 pr-3">
-            <ul class="list-disc pl-5">${o.items.map(it => `<li><span class="text-slate-700">${it.name}</span> <span class="text-slate-400">· custo ${currency(it.cost)}</span></li>`).join("")}</ul>
-            ${o.notes ? `<div class="text-xs text-slate-500 mt-1">Obs.: ${o.notes}</div>` : ""}
-          </td>
-          <td class="py-2 pr-3">${currency(cost)}</td>
-          <td class="py-2 pr-3">${currency(o.totalSale)}</td>
-          <td class="py-2 pr-3">${currency(o.feeValue)}</td>
-          <td class="py-2 pr-3">${currency(paid)}</td>
-          <td class="py-2 pr-3 ${remaining > 0 ? "text-rose-600":""}">${currency(remaining)}</td>
-          <td class="py-2 pr-3">
-            <span class="px-2 py-1 rounded text-xs ${status === "Pago" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : status === "Parcial" ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-rose-50 text-rose-700 border border-rose-200"}">${status}</span>
-          </td>
-          <td class="py-2 pr-3 print:hidden">
-            <div class="text-xs space-y-2">
-              <div>
-                <div class="font-medium text-slate-600 mb-1">Adicionar pagamento</div>
-                <div class="flex flex-wrap gap-2">
-                  <input type="number" step="0.01" min="0" placeholder="Valor (R$)" class="payVal border rounded px-2 py-1 w-28" />
-                  <select class="payMethod border rounded px-2 py-1 bg-white">
-                    <option>Cartão</option>
-                    <option>Pix</option>
-                    <option>Dinheiro</option>
-                    <option>Boleto</option>
-                    <option>Outros</option>
-                  </select>
-                  <input type="date" class="payDate border rounded px-2 py-1" value="${new Date().toISOString().slice(0,10)}" />
-                  <button class="addPayBtn px-2 py-1 rounded bg-emerald-600 text-white">Adicionar</button>
-                  ${remaining > 0.001 ? `<button class="quitBtn px-2 py-1 rounded border">Quitar restante (${currency(remaining)})</button>` : ""}
-                </div>
-              </div>
-              <button class="editBtn block text-indigo-600 hover:underline">Editar</button>
-              <button class="delBtn block text-rose-600 hover:underline">Excluir</button>
-            </div>
-          </td>
-        `;
-        // eventos
-        tr.querySelector(".addPayBtn").addEventListener("click", (ev) => {
-          ev.preventDefault();
-          const val = Number(tr.querySelector(".payVal").value || 0);
-          const method = tr.querySelector(".payMethod").value;
-          const date = tr.querySelector(".payDate").value || new Date().toISOString().slice(0,10);
-          if (val <= 0) return;
-          o.payments.push({ id: crypto.randomUUID(), method, amount: val, date });
-          save(); refreshAll();
-        });
-        const quit = tr.querySelector(".quitBtn");
-        if (quit) {
-          quit.addEventListener("click", (ev) => {
-            ev.preventDefault();
-            const date = tr.querySelector(".payDate").value || new Date().toISOString().slice(0,10);
-            const rest = getRemaining(o);
-            if (rest > 0.001) {
-              o.payments.push({ id: crypto.randomUUID(), method: "Ajuste", amount: rest, date });
-              save(); refreshAll();
-            }
-          });
-        }
-        tr.querySelector(".delBtn").addEventListener("click", () => {
-          if (confirm("Excluir esta OS?")) {
-            orders = orders.filter(x => x.id !== o.id);
-            save(); refreshAll();
-          }
-        });
-        tr.querySelector(".editBtn").addEventListener("click", () => openEditModal(o.id));
-
-        // linha de pagamentos abaixo
-        if ((o.payments||[]).length > 0) {
-          const tr2 = document.createElement("tr");
-          tr2.className = "border-b text-xs text-slate-600";
-          tr2.innerHTML = `
-            <td class="py-2 pr-3" colspan="10">
-              <div class="flex items-start gap-4">
-                <strong class="text-slate-700">Pagamentos:</strong>
-                <ul class="flex flex-wrap gap-3">
-                  ${o.payments.map(p => `<li class="border rounded-md px-2 py-1 bg-slate-50">${new Date(p.date).toLocaleDateString("pt-BR")} · ${p.method} · ${currency(p.amount)}</li>`).join("")}
-                </ul>
-                ${o.paymentNote ? `<div class="ml-auto italic">“${o.paymentNote}”</div>` : ""}
-              </div>
-            </td>
-          `;
-          tbody.appendChild(tr2);
-        }
-
-        tbody.appendChild(tr);
-      });
-
-      // Totais no rodapé
-      const all = orders.filter(o => monthKey(o.date) === selectedMonth);
-      $("#tCost").textContent  = currency(sum(all, o => sum(o.items, it => it.cost)));
-      $("#tSales").textContent = currency(sum(all, o => o.totalSale));
-      $("#tFees").textContent  = currency(sum(all, o => o.feeValue));
-      $("#tPaid").textContent  = currency(sum(all, o => getPaid(o)));
-    }
-
-    // ========= Editar OS (modal) =========
-    let editingId = null;
-    const editModal = $("#editModal");
-    const editItemsContainer = $("#editItemsContainer");
-
-    function openEditModal(id) {
-      const o = orders.find(x => x.id === id);
-      if (!o) return;
-      editingId = id;
-
-      $("#editOsNumber").value = o.osNumber;
-      $("#editOsDate").value = o.date;
-      $("#editTotalSale").value = o.totalSale;
-      $("#editFeeValue").value = o.feeValue;
-      $("#editPaymentNote").value = o.paymentNote || "";
-      $("#editNotes").value = o.notes || "";
-
-      editItemsContainer.innerHTML = "";
-      (o.items || []).forEach(it => addEditItemRow({name: it.name, cost: it.cost}));
-      if ((o.items||[]).length === 0) addEditItemRow();
-
-      editModal.classList.remove("hidden");
-      editModal.classList.add("flex");
-    }
-    function addEditItemRow(data={name:"", cost:""}) {
-      const row = document.createElement("div");
-      row.className = "grid grid-cols-12 gap-2";
-      row.innerHTML = `
-        <input class="col-span-8 border rounded-lg px-3 py-2 name" placeholder="Produto" value="${data.name || ""}" />
-        <input type="number" step="0.01" min="0" class="col-span-3 border rounded-lg px-3 py-2 cost" placeholder="Custo (R$)" value="${data.cost ?? ""}" />
-        <button type="button" class="col-span-1 text-rose-600 hover:underline remove">Remover</button>
-      `;
-      row.querySelector(".remove").addEventListener("click", () => row.remove());
-      editItemsContainer.appendChild(row);
-    }
-    $("#editAddItemBtn").addEventListener("click", () => addEditItemRow());
-    $("#closeEditBtn").addEventListener("click", () => {
-      editModal.classList.add("hidden");
-      editModal.classList.remove("flex");
-      editingId = null;
-    });
-    $("#editForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const o = orders.find(x => x.id === editingId);
-      if (!o) return;
-
-      o.osNumber = $("#editOsNumber").value.trim();
-      o.date = $("#editOsDate").value;
-      o.totalSale = Number($("#editTotalSale").value || 0);
-      o.feeValue = Number($("#editFeeValue").value || 0);
-      o.paymentNote = $("#editPaymentNote").value.trim();
-      o.notes = $("#editNotes").value.trim();
-
-      const items = $$("#editItemsContainer .grid").map(row => {
-        const name = row.querySelector(".name").value.trim();
-        const cost = Number(row.querySelector(".cost").value || 0);
-        return name ? { id: crypto.randomUUID(), name, cost } : null;
-      }).filter(Boolean);
-      o.items = items;
-
-      save(); refreshAll();
-      $("#closeEditBtn").click();
     });
 
-    // ========= CSV =========
-    function exportCSV() {
-      const header = ["Data","Nº OS","Itens","Valor Venda","Taxa","Recebido","Restante","Status"];
-      const rows = orders.filter(o => monthKey(o.date) === selectedMonth).map(o => [
-        new Date(o.date).toLocaleDateString("pt-BR"),
-        o.osNumber,
-        o.items.map(it => it.name).join(" + "),
-        o.totalSale,
-        o.feeValue,
-        getPaid(o),
-        getRemaining(o),
-        getStatus(o),
-      ]);
-      const csv = [header, ...rows].map(r => r.join(";")).join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `OticaFlow-${selectedMonth}.csv`;
-      link.click();
-    }
-
-    // ========= Navegação / Buttons =========
-    $("#monthSelect").addEventListener("change", (e) => { selectedMonth = e.target.value; refreshAll(); });
-    $("#pendingOnlyChk").addEventListener("change", (e) => { filterPendingOnly = e.target.checked; refreshAll(); });
-
-    $("#toggleReportBtn").addEventListener("click", () => {
-      showReport = !showReport;
-      refreshVisibility();
-      if (showReport) renderReport();
-    });
-    $("#goReportBtn").addEventListener("click", () => {
-      showReport = true; refreshVisibility(); renderReport();
-    });
-    $("#backToFormBtn").addEventListener("click", () => {
-      showReport = false; refreshVisibility();
+    $("btnCSV").addEventListener("click", ()=>{
+      const header = [
+        "id","data","cliente",
+        "pagamentos_detalhe", // ex.: "Crédito (2x): 300 | PIX: 200"
+        "valorVenda","recebido_total","custo","lucro","observacao"
+      ];
+      const lines = [header.join(",")];
+      for (const o of orders){
+        const detalhe = (o.pagamentos||[]).map(p=>{
+          const parc = p.forma === "Crédito" ? ` (${p.parcelamento||"À vista"})` : "";
+          return `${p.forma}${parc}: ${String(p.valor).replace(".",",")}`;
+        }).join(" | ");
+        const row = [
+          o.id,
+          o.data,
+          String(o.cliente ?? "").replaceAll(","," "),
+          detalhe.replaceAll(",",";"),
+          String(o.valorVenda ?? 0).replace(".",","),
+          String(o.recebido ?? 0).replace(".",","),
+          String(o.custo ?? 0).replace(".",","),
+          String((o.lucro ?? ((o.recebido||0)-(o.custo||0)))).replace(".",","),
+          String(o.observacao ?? "").replaceAll(","," ")
+        ];
+        lines.push(row.join(","));
+      }
+      const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const monthKey = new Date().toISOString().slice(0,7);
+      a.download = `otica_flow_${monthKey}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
     });
 
-    $("#printBtn").addEventListener("click", () => window.print());
-    $("#printReportBtn").addEventListener("click", () => window.print());
-    $("#exportCsvBtn").addEventListener("click", exportCSV);
+    // Tips toggle
+    $("tipsToggle").addEventListener("click", ()=>{
+      const body = $("tipsBody");
+      const open = body.style.display !== "none";
+      body.style.display = open ? "none" : "block";
+      $("tipsToggle").textContent = open ? "💡 Dicas rápidas ▼" : "💡 Dicas rápidas ▲";
+    });
 
-    function refreshVisibility() {
-      $("#reportSection").classList.toggle("hidden", !showReport);
-      $("#formSection").classList.toggle("hidden", showReport);
-      $("#summaryPanel").classList.toggle("hidden", showReport);
-      $("#toggleReportBtn").textContent = showReport ? "Voltar ao cadastro" : "Ver relatório do mês";
-    }
-
-    function refreshAll() {
-      applyMonthOptions();
-      $("#summaryMonth").textContent = selectedMonth;
-      renderSummary();
-      renderLogo();
-      if (showReport) renderReport();
-    }
-
-    // ========= Boot =========
-    load();
-    // set data default
-    $("#osDate").value = new Date().toISOString().slice(0,10);
-    itemsContainer.innerHTML = ""; addItemRow(itemsContainer);
-    refreshAll();
+    // Boot
+    (function init(){
+      $("data").value = todayISO();
+      orders = loadOrders();      // migra para o novo shape com 'pagamentos'
+      saveOrders(orders);         // persiste normalizado
+      render();
+      resetForm();                // prepara form em branco com 1 linha de pagamento
+    })();
   </script>
 </body>
 </html>
