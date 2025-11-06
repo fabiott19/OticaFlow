@@ -3,18 +3,30 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ótica Flow — Vendas (v6 - HTML)</title>
+  <title>Ótica Flow</title>
   <style>
     :root{ --bg:#fafafa; --card:#fff; --line:#e5e5e5; --muted:#666; --primary:#0b6; }
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;background:#f7f7f7;color:#222}
     .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
-    h1{margin:0 0 4px}
-    .sub{margin:0 0 16px;color:#555}
+    h1{margin:0 0 16px}
     .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
     .grid{display:grid;gap:12px}
     .grid-2{grid-template-columns:1fr 1fr}
-    label{display:block;font-size:12px;color:#444;margin:0 0 6px}
+
+    /* Rótulos com destaque (bold + “balão” com contorno) */
+    label{
+      display:inline-block;
+      font-weight:700;
+      font-size:12px;
+      color:#333;
+      margin:0 0 6px;
+      padding:4px 8px;
+      border:1px solid #ddd;
+      border-radius:10px;
+      background:#fff;
+    }
+
     input[type="text"], input[type="date"], input[type="number"], select, textarea{
       width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;outline:none
     }
@@ -30,23 +42,21 @@
     th,td{text-align:left;padding:8px 10px;border-top:1px solid #eee;font-size:14px;vertical-align:top}
     .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
     .stat{background:var(--card);border:1px solid #eee;border-radius:10px;padding:12px}
-    .stat .label{color:#666;font-size:12px;margin-bottom:6px}
+    .stat .label{color:#666;font-size:12px;margin-bottom:6px;font-weight:600}
     .stat .value{font-weight:700;font-size:18px}
     .tips{border:1px solid var(--line);border-radius:10px;overflow:hidden}
     .tips button{width:100%;text-align:left;padding:12px 14px;background:#f6fbff;border:0;cursor:pointer;font-weight:600}
     .muted{color:#777}
     .pay-grid{display:grid;grid-template-columns:180px 160px 1fr auto;gap:8px;align-items:end}
-    .pay-grid .head{font-size:12px;color:#444;margin-bottom:6px}
-    .tag{display:inline-block;background:#eef;border:1px solid #ccd;border-radius:6px;padding:2px 6px;margin:2px 4px 0 0;font-size:12px}
+    .pay-grid .head{font-size:12px;color:#444;margin-bottom:6px;font-weight:700;padding:4px 8px;border:1px solid #ddd;border-radius:10px;background:#fff;display:inline-block}
     @media (max-width:900px){ .pay-grid{grid-template-columns:1fr 1fr 1fr auto} }
     @media (max-width:800px){ .grid-2{grid-template-columns:1fr} .stats{grid-template-columns:1fr 1fr} }
-    @media (max-width:520px){ .stats{grid-template-columns:1fr} .pay-grid{grid-template-columns:1fr 1fr; } }
+    @media (max-width:520px){ .stats{grid-template-columns:1fr} .pay-grid{grid-template-columns:1fr 1fr;} }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Ótica Flow — Vendas (v6 - HTML)</h1>
-    <p class="sub">Pagamentos múltiplos por venda • Parcelamento no crédito • “Recebido total” • “Lucro” automático • Edição e CSV • Migração</p>
+    <h1>Ótica Flow</h1>
 
     <!-- Formulário -->
     <form id="form" class="card grid grid-2">
@@ -62,7 +72,7 @@
 
       <div style="grid-column:1/-1">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <label style="margin:0;font-weight:600">Pagamentos (pode dividir em vários métodos)</label>
+          <label style="margin:0">Pagamentos (pode dividir em vários métodos)</label>
           <button class="btn mini" type="button" id="addPay">+ Adicionar método</button>
         </div>
         <div class="pay-grid" id="payHead">
@@ -154,41 +164,27 @@
     </section>
   </div>
 
+  <!-- JS igual ao v6 anterior (pagamentos múltiplos, migração, etc.) -->
   <script>
-    /********* Config *********/
-    const STORAGE_KEY_V5 = "otica_flow_orders_v5"; // mantemos a mesma chave e migramos o shape
+    const STORAGE_KEY_V5 = "otica_flow_orders_v5";
     const LEGACY_KEYS = ["otica_flow_orders_v4", "otica_flow_orders_v3"];
-
-    /********* Utils *********/
     const $ = (id) => document.getElementById(id);
     const currency = (n) => Number(n||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
     function parseNum(v){ if (v === "" || v == null) return 0; const n = Number(String(v).replace(",", ".")); return isFinite(n) ? n : 0; }
     function todayISO(){ return new Date().toISOString().slice(0,10); }
     function uuid(){ return crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now(); }
 
-    /********* Migração *********
-     * v5 -> v6: introduz 'pagamentos' (array).
-     * Regras:
-     * - Se já existir 'pagamentos' (array), mantém.
-     * - Senão, cria a partir de (pagamento.forma, pagamento.parcelamento, recebido).
-     * - recebidoTotal = soma dos pagamentos (se não houver, usa o antigo 'recebido').
-     * - lucro = recebidoTotal - custo
-     */
     function normalizePagamentos(o){
       if (Array.isArray(o.pagamentos) && o.pagamentos.length){
-        // garante shape e soma
-        const clean = o.pagamentos.map(p=>({
+        return o.pagamentos.map(p=>({
           forma: ["Crédito","Débito","PIX","Dinheiro"].includes(p.forma) ? p.forma : "Dinheiro",
           parcelamento: p.forma === "Crédito" ? (p.parcelamento || "À vista") : "",
           valor: parseNum(p.valor)
         }));
-        return clean;
       } else {
         const forma = (o?.pagamento?.forma && ["Crédito","Débito","PIX","Dinheiro"].includes(o.pagamento.forma)) ? o.pagamento.forma : "Dinheiro";
         const parcel = forma === "Crédito" ? (o?.pagamento?.parcelamento || "À vista") : "";
-        const recebido = parseNum(o.recebido ?? 0);
-        // se não houver recebido mas houver taxa antiga, tenta derivar
-        let valor = recebido;
+        let valor = parseNum(o.recebido ?? 0);
         if (!valor && o.taxa != null){
           const total = parseNum(o.valorVenda ?? o.total ?? 0);
           valor = total - parseNum(o.taxa);
@@ -196,30 +192,26 @@
         return [{ forma, parcelamento: parcel, valor }];
       }
     }
-
     function migrateOrderToV6(o){
       const valorVenda = parseNum(o.valorVenda ?? o.total ?? 0);
       const custo = parseNum(o.custo ?? 0);
       const pagamentos = normalizePagamentos(o);
       const recebidoTotal = pagamentos.reduce((s,p)=>s + parseNum(p.valor), 0);
       const lucro = recebidoTotal - custo;
-
       return {
         id: o.id || uuid(),
         data: o.data || todayISO(),
         cliente: o.cliente || "",
         observacao: o.observacao || "",
         itens: Array.isArray(o.itens) ? o.itens : [],
-        pagamentos,            // novo shape
+        pagamentos,
         valorVenda,
-        recebido: recebidoTotal, // mantemos 'recebido' como total para compatibilidade
+        recebido: recebidoTotal,
         custo,
         lucro
       };
     }
-
     function loadOrders(){
-      // tenta v5 (ou já v6)
       const raw = localStorage.getItem(STORAGE_KEY_V5);
       if (raw){
         try{
@@ -227,7 +219,6 @@
           return Array.isArray(arr) ? arr.map(migrateOrderToV6) : [];
         }catch{}
       }
-      // tenta legado
       for (const k of LEGACY_KEYS){
         const lg = localStorage.getItem(k);
         if (lg){
@@ -243,11 +234,9 @@
     }
     function saveOrders(orders){ localStorage.setItem(STORAGE_KEY_V5, JSON.stringify(orders)); }
 
-    /********* Estado *********/
     let orders = [];
     let editingId = null;
 
-    /********* Pagamentos (UI dinâmico) *********/
     const payList = $("payList");
     const formaOpts = ["Crédito","Débito","PIX","Dinheiro"];
     const parcelOpts = ["À vista", ...Array.from({length:9}, (_,i)=>`${i+2}x`)];
@@ -258,14 +247,12 @@
       wrap.className = "pay-grid";
       wrap.dataset.rowId = rowId;
 
-      // Forma
       const selForma = document.createElement("select");
       for (const f of formaOpts){
         const op = document.createElement("option"); op.value=f; op.textContent=f; selForma.appendChild(op);
       }
       selForma.value = p.forma || "Dinheiro";
 
-      // Parcelamento
       const selParc = document.createElement("select");
       function refillParc(){
         selParc.innerHTML = "";
@@ -282,25 +269,18 @@
         }
       }
 
-      // Valor
       const inpValor = document.createElement("input");
       inpValor.type="number"; inpValor.step="0.01"; inpValor.placeholder="0,00";
       inpValor.value = p.valor ?? "";
 
-      // Remover
       const btnDel = document.createElement("button");
       btnDel.type="button"; btnDel.className="btn mini danger"; btnDel.textContent="Remover";
-      btnDel.addEventListener("click", ()=>{
-        wrap.remove();
-        updateRecebidoAndLucro();
-      });
+      btnDel.addEventListener("click", ()=>{ wrap.remove(); updateRecebidoAndLucro(); });
 
-      // Eventos
       selForma.addEventListener("change", ()=>{ refillParc(); updateRecebidoAndLucro(); });
       selParc.addEventListener("change", ()=>{ updateRecebidoAndLucro(); });
       inpValor.addEventListener("input", ()=>{ updateRecebidoAndLucro(); });
 
-      // Monta
       refillParc();
       wrap.appendChild(selForma);
       wrap.appendChild(selParc);
@@ -319,10 +299,9 @@
         const parcelamento = (forma === "Crédito") ? selParc.value : "";
         const valor = parseNum(inpValor.value);
         return { forma, parcelamento, valor };
-      }).filter(p=>p.valor>0 || p.forma); // mantém linha mesmo com 0 para edição
+      }).filter(p=>p.valor>0 || p.forma);
     }
 
-    /********* Render / Resumo / Tabela *********/
     const sumVendas = $("sumVendas");
     const sumRecebido = $("sumRecebido");
     const sumCusto = $("sumCusto");
@@ -334,7 +313,6 @@
 
     function pagamentosResumoStr(pagamentos){
       if (!Array.isArray(pagamentos) || !pagamentos.length) return "—";
-      // Ex.: "Crédito (2x): R$ 300,00 • PIX: R$ 200,00"
       return pagamentos.map(p=>{
         const parc = p.forma === "Crédito" ? ` (${p.parcelamento||"À vista"})` : "";
         return `${p.forma}${parc}: ${currency(p.valor)}`;
@@ -381,7 +359,6 @@
       }
     }
 
-    /********* Form helpers *********/
     const dataEl = $("data");
     const clienteEl = $("cliente");
     const valorEl = $("valorVenda");
@@ -400,7 +377,7 @@
       custoEl.value = "";
       lucroEl.value = currency(0);
       payList.innerHTML = "";
-      addPaymentRow(); // começa com uma linha
+      addPaymentRow();
       btnSubmit.textContent = "Adicionar venda";
       btnCancel.style.display = "none";
       window.scrollTo({top:0,behavior:"smooth"});
@@ -432,14 +409,12 @@
       window.scrollTo({top:0,behavior:"smooth"});
     }
 
-    /********* Init *********/
     $("addPay").addEventListener("click", ()=> addPaymentRow());
 
     $("form").addEventListener("submit", (e)=>{
       e.preventDefault();
       const pagamentos = getPaymentsFromUI();
       const recebidoTotal = pagamentos.reduce((s,p)=>s + parseNum(p.valor), 0);
-
       const record = {
         id: editingId || uuid(),
         data: dataEl.value || todayISO(),
@@ -448,7 +423,7 @@
         itens: [],
         pagamentos,
         valorVenda: parseNum(valorEl.value),
-        recebido: recebidoTotal,          // compat total
+        recebido: recebidoTotal,
         custo: parseNum(custoEl.value),
       };
       record.lucro = record.recebido - record.custo;
@@ -483,7 +458,7 @@
     $("btnCSV").addEventListener("click", ()=>{
       const header = [
         "id","data","cliente",
-        "pagamentos_detalhe", // ex.: "Crédito (2x): 300 | PIX: 200"
+        "pagamentos_detalhe",
         "valorVenda","recebido_total","custo","lucro","observacao"
       ];
       const lines = [header.join(",")];
@@ -515,7 +490,6 @@
       URL.revokeObjectURL(url);
     });
 
-    // Tips toggle
     $("tipsToggle").addEventListener("click", ()=>{
       const body = $("tipsBody");
       const open = body.style.display !== "none";
@@ -523,13 +497,12 @@
       $("tipsToggle").textContent = open ? "💡 Dicas rápidas ▼" : "💡 Dicas rápidas ▲";
     });
 
-    // Boot
     (function init(){
       $("data").value = todayISO();
-      orders = loadOrders();      // migra para o novo shape com 'pagamentos'
-      saveOrders(orders);         // persiste normalizado
+      orders = loadOrders();
+      saveOrders(orders);
       render();
-      resetForm();                // prepara form em branco com 1 linha de pagamento
+      resetForm();
     })();
   </script>
 </body>
