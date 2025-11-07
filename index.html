@@ -29,8 +29,8 @@
   <!-- Splash -->
   <div id="splash">
     <div class="flex flex-col items-center gap-4">
-      <img src="logo-otica-flow.png" alt="Ótica Flow" class="h-20 w-20 object-contain" />
-      <p class="text-sm opacity-70">Carregando Ótica Flow…</p>
+      <img src="logo-otica-flow.png" alt="Ótica Flow" class="h-80 w-80 object-contain" />
+      <p class="text-base opacity-70 mt-2">Carregando Ótica Flow…</p>
     </div>
   </div>
 
@@ -70,7 +70,7 @@
           <thead><tr class="text-left">
             <th class="p-3">Data</th><th class="p-3">OS</th><th class="p-3">Produtos</th>
             <th class="p-3 text-right">Custo</th><th class="p-3 text-right">Venda</th>
-            <th class="p-3 text-right">Taxa</th><th class="p-3 text-right">Lucro</th><th class="p-3">Pagamento</th><th class="p-3">Ações</th>
+            <th class="p-3 text-right">Taxa</th><th class="p-3 text-right">Lucro</th><th class="p-3">Pagamento</th>
           </tr></thead>
           <tbody id="rows"></tbody>
         </table>
@@ -78,47 +78,19 @@
     </section>
   </main>
 
-  <template id="tplProduct"><tr><td class="p-2"><input name="name" required class="input w-full rounded-lg px-2 py-1.5" placeholder="Ex: Lente Poli AR" /></td><td class="p-2"><input name="cost" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00" /></td><td class="p-2"><input name="price" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00" /></td><td class="p-2"><input name="fee" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00" /></td><td class="p-2 text-right"><span class="lucro">R$ 0,00</span></td><td class="p-2 text-right"><button type="button" class="btn delRow px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-600">✕</button></td></tr></template>
-
   <script>
     const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     const fnum = new Intl.NumberFormat('pt-BR');
     const parseBRL = (v='') => { if (typeof v === 'number') return v; v=(v+'').replace(/[^\\d,.-]/g,'').replace(/\\./g,'').replace(',', '.'); const n=parseFloat(v); return isNaN(n)?0:n; };
     const sum = (arr,sel) => arr.reduce((a,x)=>a+sel(x),0);
 
-    // Integração com o Google Drive
-    const API_URL = "https://script.google.com/macros/s/AKfycbxw3YiUOMHbhXNxSeahLW456uB4T3L4wLjxKUYiMA2bBLCCsTTfllOkd-8KQ_mH8zmG/exec";
+    const STORE_KEY = 'otica_flow_sales_v1';
+    const loadSales = () => JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
 
-    const loadSales = async () => {
-      try {
-        const r = await fetch(API_URL + "?t=" + Date.now());
-        const j = await r.json();
-        if (j.ok && Array.isArray(j.data)) return j.data;
-      } catch (e) {
-        console.error("Erro ao carregar do Drive", e);
-      }
-      return JSON.parse(localStorage.getItem('otica_flow_sales_v1') || '[]');
-    };
-
-    const saveSales = async (arr) => {
-      localStorage.setItem('otica_flow_sales_v1', JSON.stringify(arr));
-      try {
-        await fetch(API_URL, {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({ action: "saveAll", data: arr })
-        });
-      } catch (e) {
-        console.error("Erro ao salvar no Drive", e);
-      }
-    };
-
-    // Estado
     let sales = [];
-    let editingId = null;
 
     const rows = document.querySelector('#rows');
-    const btnNew = document.querySelector('#btnNew');
+    const splash = document.querySelector('#splash');
 
     function calcSaleTotals(sale) {
       const totVenda = sum(sale.products, p=>+p.price||0);
@@ -128,8 +100,7 @@
       return {totVenda, totCusto, totTaxa, lucro};
     }
 
-    async function render(){
-      sales = await loadSales();
+    function render(){
       rows.innerHTML = '';
       for (const s of sales){
         const t = calcSaleTotals(s);
@@ -143,13 +114,22 @@
           <td class="p-3 text-right">${fmt.format(t.totVenda)}</td>
           <td class="p-3 text-right">${fmt.format(t.totTaxa)}</td>
           <td class="p-3 text-right">${fmt.format(t.lucro)}</td>
-          <td class="p-3">${s.payments.map(p=>p.method+' '+p.detail+': '+fmt.format(p.amount)).join(' • ')}</td>
-        `;
+          <td class="p-3">${s.payments.map(p=>p.method+' '+p.detail+': '+fmt.format(p.amount)).join(' • ')}</td>`;
         rows.appendChild(tr);
       }
     }
 
-    window.addEventListener('load', render);
+    function hideSplash(){
+      splash.classList.add('hide');
+      setTimeout(()=> splash.style.display='none', 400);
+    }
+
+    window.addEventListener('load', () => {
+      sales = loadSales();
+      render();
+      setTimeout(hideSplash, 1200);
+    });
   </script>
+
 </body>
 </html>
