@@ -1,125 +1,79 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Relatório — Ótica Flow</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  @media print{
-    #topbar, .no-print{ display:none !important; }
-    body{ background:white !important; color:#111 !important; }
-    #totaisMes{ display:block !important; }
-    table{ page-break-inside:auto }
-    tr{ page-break-inside:avoid; page-break-after:auto }
-  }
-  body{ background:#0b1720; color:#e5edf4; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
-  .card{ background:#0f1f2a; border:1px solid rgba(255,255,255,.08) }
-  .tbl th{background:#0f2630}
-  #totaisMes{ display:none; }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ótica Flow - Relatório</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <div id="topbar" class="sticky top-0 z-20 bg-black/30 backdrop-blur border-b border-white/10">
-    <div class="max-w-6xl mx-auto p-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <img src="logo-otica-flow.png" class="h-32 w-32 object-contain" alt="Ótica Flow" />
-        <strong class="text-xl">Relatório — Ótica Flow</strong>
-      </div>
-      <div class="flex gap-2">
-        <a href="index.html" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600">⬅️ Voltar</a>
-        <button id="btnPrint" class="px-3 py-2 rounded-lg bg-white/90 text-slate-900 font-semibold">🖨️ Imprimir</button>
-      </div>
+<body class="bg-slate-900 text-white min-h-screen p-4">
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center">
+      <img src="logo.png" alt="Logo" class="w-8 h-8 mr-2">
+      <h1 class="text-xl font-semibold">Relatório de Vendas</h1>
     </div>
+    <a href="index.html" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600">⬅️ Voltar</a>
   </div>
 
-  <main class="max-w-6xl mx-auto p-4 space-y-4">
-    <section class="card rounded-2xl p-5">
-      <div class="mb-3">
-        <h2 class="font-semibold">Vendas</h2>
-        <p class="text-sm opacity-70">Visualize e imprima o relatório mensal.</p>
-      </div>
-      <div class="overflow-auto rounded-xl border border-white/10">
-        <table class="w-full text-sm tbl">
-          <thead>
-            <tr class="text-left">
-              <th class="p-3">Data</th><th class="p-3">OS</th><th class="p-3">Produtos</th>
-              <th class="p-3 text-right">Custo</th><th class="p-3 text-right">Venda</th>
-              <th class="p-3 text-right">Taxa</th><th class="p-3 text-right">Lucro</th><th class="p-3">Pagamentos</th>
-            </tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
-    </section>
+  <table id="tabela" class="w-full text-left border-collapse">
+    <thead class="bg-slate-800">
+      <tr>
+        <th class="p-2">Data</th>
+        <th class="p-2">Cliente</th>
+        <th class="p-2">Pagamento</th>
+        <th class="p-2">Parcelas</th>
+        <th class="p-2">Valor</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-700 bg-slate-800"></tbody>
+  </table>
 
-    <section id="totaisMes" class="p-4 rounded-xl border border-slate-300 bg-white text-slate-900">
-      <h3 class="font-bold mb-2">Totais do mês</h3>
-      <div class="grid grid-cols-3 gap-4 text-lg">
-        <div><span class="font-semibold">Custo:</span> <span id="tCusto"></span></div>
-        <div><span class="font-semibold">Venda:</span> <span id="tVenda"></span></div>
-        <div><span class="font-semibold">Lucro:</span> <span id="tLucro"></span></div>
-      </div>
-    </section>
-  </main>
+  <p id="totais" class="text-center text-gray-400 mt-4"></p>
 
-<script>
-  const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-  const sum = (arr,sel) => arr.reduce((a,x)=>a+sel(x),0);
-  const API_URL = "https://script.google.com/macros/s/AKfycbxw3YiUOMHbhXNxSeahLW456uB4T3L4wLjxKUYiMA2bBLCCsTTfllOkd-8KQ_mH8zmG/exec";
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbxw3YiUOMHbhXNxSeahLW456uB4T3L4wLjxKUYiMA2bBLCCsTTfllOkd-8KQ_mH8zmG/exec";
 
-  async function fetchFromDrive() {
-    const r = await fetch(API_URL + "?t=" + Date.now(), {cache:"no-store"});
-    const j = await r.json();
-    return (j && j.ok && Array.isArray(j.data)) ? j.data : [];
-  }
-  function calcSaleTotals(sale) {
-    const totVenda = (sale.products||[]).reduce((a,p)=>a+(+p.price||0),0);
-    const totCusto = (sale.products||[]).reduce((a,p)=>a+(+p.cost||0),0);
-    const totTaxa  = (sale.products||[]).reduce((a,p)=>a+(+p.fee||0),0);
-    const lucro = totTaxa - totCusto;
-    return {totVenda, totCusto, totTaxa, lucro};
-  }
-  function sameMonth(d1, d2){
-    const a = new Date(d1), b = new Date(d2);
-    return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth();
-  }
-  async function render(){
-    const sales = await fetchFromDrive();
-    const rows = document.getElementById('rows');
-    rows.innerHTML = '';
-    const now = new Date();
-    const monthSales = sales.filter(s=> s.date && sameMonth(s.date, now));
-    for (const s of sales){
-      const t = calcSaleTotals(s);
-      const payStr = (s.payments||[]).map(p=>{
-        const parc = p.installments ? ` ${p.installments}` : '';
-        const det  = p.detail ? ` ${p.detail}` : '';
-        return `${p.method}${parc}${det}: ${fmt.format(+p.amount||0)}`;
-      }).join(' • ');
-      const tr = document.createElement('tr');
-      tr.className = 'border-t border-white/10';
-      tr.innerHTML = `
-        <td class="p-3">${s.date||''}</td>
-        <td class="p-3">${s.os||''}</td>
-        <td class="p-3">${(s.products||[]).map(p=>p.name).join(', ')}</td>
-        <td class="p-3 text-right">${fmt.format(t.totCusto)}</td>
-        <td class="p-3 text-right">${fmt.format(t.totVenda)}</td>
-        <td class="p-3 text-right">${fmt.format(t.totTaxa)}</td>
-        <td class="p-3 text-right">${fmt.format(t.lucro)}</td>
-        <td class="p-3">${payStr}</td>`;
-      rows.appendChild(tr);
+    function jsonp(url){
+      return new Promise((resolve,reject)=>{
+        const cbName = "cb_" + Date.now() + Math.random().toString(16).slice(2);
+        const s = document.createElement("script");
+        s.src = url + (url.includes("?")?"&":"?") + "callback=" + cbName;
+        window[cbName] = data => { resolve(data); s.remove(); delete window[cbName]; };
+        s.onerror = reject;
+        document.body.appendChild(s);
+      });
     }
-    const tVenda = sum(monthSales, s=>calcSaleTotals(s).totVenda);
-    const tCusto = sum(monthSales, s=>calcSaleTotals(s).totCusto);
-    const tTaxa  = sum(monthSales, s=>calcSaleTotals(s).totTaxa);
-    const tLucro = tTaxa - tCusto;
-    document.getElementById('tCusto').textContent = fmt.format(tCusto);
-    document.getElementById('tVenda').textContent = fmt.format(tVenda);
-    document.getElementById('tLucro').textContent = fmt.format(tLucro);
-  }
-  document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
-  window.addEventListener('load', render);
-</script>
+
+    function fromCentavos(c){ return (c/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+    function fmtData(iso){ return iso ? new Date(iso).toLocaleDateString('pt-BR') : "-"; }
+
+    async function carregar(){
+      try {
+        const res = await jsonp(API_URL + "?t=" + Date.now());
+        if(!res.ok) throw new Error(res.error || "Erro ao carregar");
+        const vendas = res.data || [];
+        const tbody = document.querySelector("#tabela tbody");
+        tbody.innerHTML = "";
+        let total = 0;
+        vendas.forEach(v=>{
+          total += v.valorCentavos || 0;
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="p-2">${fmtData(v.data)}</td>
+            <td class="p-2">${v.cliente}</td>
+            <td class="p-2">${v.pagamento}</td>
+            <td class="p-2">${v.parcelas}</td>
+            <td class="p-2">${fromCentavos(v.valorCentavos)}</td>`;
+          tbody.appendChild(tr);
+        });
+        document.getElementById("totais").textContent = `Vendas: ${vendas.length} | Total: ${fromCentavos(total)}`;
+      } catch(err){
+        console.error(err);
+        document.getElementById("totais").textContent = "Erro ao carregar dados.";
+      }
+    }
+
+    carregar();
+  </script>
 </body>
 </html>
