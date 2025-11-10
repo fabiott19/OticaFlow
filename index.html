@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ótica Flow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="logo-otica-flow.png" type="image/png" />
+  <style>
+    :root{--bg:#0b1720;--teal:#94d2bd}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,var(--bg),#0f2430);color:#e6edf4}
+    .glass{background:rgba(255,255,255,.06);backdrop-filter:blur(8px)}
+    .card{background:#0f1f2a;border:1px solid rgba(255,255,255,.08)}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.18)}
+    .btn-muted{opacity:.8}
+    .input{background:#0d1b24;border:1px solid rgba(255,255,255,.08)}
+    .tbl th{background:#0f2630}
+    #splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0c1822;z-index:50;transition:opacity .3s ease}
+    #splash.hide{opacity:0;pointer-events:none}
+    .status-badge{position:fixed;bottom:1rem;right:1rem;padding:0.5rem 1rem;rounded:0.5rem;font-size:0.75rem;z-index:40;transition:all 0.3s}
+  </style>
+</head>
+<body>
+  <!-- Splash -->
+  <div id="splash">
+    <div class="flex flex-col items-center gap-4">
+      <img src="logo-otica-flow.png" alt="Ótica Flow" class="h-80 w-80 object-contain" />
+      <p class="text-base opacity-70 mt-2">Carregando Ótica Flow…</p>
+    </div>
+  </div>
+
+  <!-- Badge de status de sincronização -->
+  <div id="syncStatus" class="status-badge bg-slate-700/90 text-white rounded-lg" style="display:none">
+    <span id="syncText">Sincronizando...</span>
+  </div>
+
+  <!-- Topo -->
+  <header class="sticky top-0 z-30 glass border-b border-white/10 text-slate-100">
+    <div class="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center">
+        <img src="logo-otica-flow.png" alt="Ótica Flow" class="h-32 w-32 object-contain" />
+      </div>
+      <nav class="flex items-center gap-2">
+        <button id="btnNew" class="px-3 py-2 rounded-xl bg-[var(--teal)] text-slate-900 font-semibold">+ Nova venda</button>
+        <a id="btnReport" href="relatorio.html" class="px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600">📊 Relatório</a>
+        <label for="importFile" class="px-3 py-2 rounded-xl btn-ghost btn-muted cursor-pointer">Importar</label>
+        <input type="file" id="importFile" accept="application/json" class="hidden" />
+        <button id="btnExport" class="px-3 py-2 rounded-xl btn-ghost btn-muted">Exportar</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl p-4 grid gap-6 text-slate-100">
+    <section class="card rounded-2xl p-5">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Vendas</p><p id="kpiQtd" class="text-2xl font-semibold">0</p></div>
+        <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Faturamento</p><p id="kpiFat" class="text-2xl font-semibold">R$ 0,00</p></div>
+        <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Taxas</p><p id="kpiTax" class="text-2xl font-semibold">R$ 0,00</p></div>
+        <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Lucro (Taxa − Custo)</p><p id="kpiLucro" class="text-2xl font-semibold">R$ 0,00</p></div>
+      </div>
+    </section>
+
+    <section class="card rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Últimas vendas</h2>
+      </div>
+      <div class="overflow-auto rounded-xl border border-white/10">
+        <table class="w-full text-sm tbl">
+          <thead>
+            <tr class="text-left">
+              <th class="p-3">Data</th><th class="p-3">OS</th><th class="p-3">Produtos</th>
+              <th class="p-3 text-right">Custo</th><th class="p-3 text-right">Venda</th>
+              <th class="p-3 text-right">Taxa</th><th class="p-3 text-right">Lucro</th>
+              <th class="p-3">Pagamento</th><th class="p-3">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal Nova venda -->
+  <dialog id="dlg" class="rounded-2xl p-0 bg-[#0f1f2a] text-slate-100 w-[min(900px,95vw)] border border-white/10">
+    <form id="formSale">
+      <div class="p-4 border-b border-white/10 flex items-center justify-between">
+        <h3 class="font-semibold">Nova venda</h3>
+        <button type="button" id="btnClose" class="px-3 py-1.5 rounded-lg btn-ghost">✕</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <label class="text-sm">Data
+            <input name="date" type="date" class="input w-full rounded-lg px-2 py-1.5 mt-1" required>
+          </label>
+          <label class="text-sm">OS
+            <input name="os" type="text" class="input w-full rounded-lg px-2 py-1.5 mt-1" placeholder="Produto / Serviço">
+          </label>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <strong>Produtos</strong>
+            <button type="button" id="addProd" class="px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-600">+ Item</button>
+          </div>
+          <table class="w-full text-sm">
+            <thead><tr><th class="text-left">Nome</th><th class="text-right">Custo</th><th class="text-right">Venda</th><th class="text-right">Líquido (após taxa)</th><th></th></tr></thead>
+            <tbody id="prodBody"></tbody>
+          </table>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <strong>Pagamentos</strong>
+            <button type="button" id="addPay" class="px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-600">+ Pagamento</button>
+          </div>
+          <table class="w-full text-sm">
+            <thead><tr><th class="text-left">Método</th><th class="text-left">Detalhe</th><th class="text-left">Parcelas (só crédito)</th><th class="text-right">Valor</th><th></th></tr></thead>
+            <tbody id="payBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="p-4 border-t border-white/10 flex items-center justify-end gap-2">
+        <button type="submit" class="px-4 py-2 rounded-xl bg-[var(--teal)] text-slate-900 font-semibold">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Templates -->
+  <template id="tplProdRow">
+    <tr>
+      <td class="p-1"><input name="name" required class="input w-full rounded-lg px-2 py-1.5" placeholder="Ex: Armação Hess"></td>
+      <td class="p-1"><input name="cost" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00"></td>
+      <td class="p-1"><input name="price" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00"></td>
+      <td class="p-1"><input name="fee" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00"></td>
+      <td class="p-1 text-right"><button type="button" class="btn-ghost px-2 py-1 rounded-lg delRow">✕</button></td>
+    </tr>
+  </template>
+
+  <template id="tplPayRow">
+    <tr>
+      <td class="p-1">
+        <select name="method" class="input w-full rounded-lg px-2 py-1.5">
+          <option>PIX</option><option>Dinheiro</option><option>Crédito</option><option>Débito</option>
+        </select>
+      </td>
+      <td class="p-1"><input name="detail" class="input w-full rounded-lg px-2 py-1.5" placeholder="ex: Visa, Crédito/Débito"></td>
+      <td class="p-1">
+        <select name="installments" class="input w-full rounded-lg px-2 py-1.5 opacity-50" disabled>
+          <option value="">—</option>
+          <option>à vista</option><option>2x</option><option>3x</option><option>4x</option><option>5x</option><option>6x</option>
+          <option>7x</option><option>8x</option><option>9x</option><option>10x</option><option>11x</option><option>12x</option>
+        </select>
+      </td>
+      <td class="p-1"><input name="amount" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00"></td>
+      <td class="p-1 text-right"><button type="button" class="btn-ghost px-2 py-1 rounded-lg delRow">✕</button></td>
+    </tr>
+  </template>
+
+  <script>
+    const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    const fnum = new Intl.NumberFormat('pt-BR');
+    const parseBRL = (v='') => { if (typeof v === 'number') return v;
+      v=(v+'').replace(/\u00A0/g,' ').replace(/[Rr]\$\s*/g,'').replace(/[^\d.,-]/g,'');
+      if (v.includes(',')&&v.includes('.')) v=v.replace(/\./g,'').replace(',', '.'); else if (v.includes(',')) v=v.replace(',', '.');
+      const n=parseFloat(v); return Number.isFinite(n)?n:0;
+    };
+    const sum = (arr,sel) => arr.reduce((a,x)=>a+sel(x),0);
+
+    const STORE_KEY = 'otica_flow_sales_v1';
+
+    const loadLocal = () => {
+      try {
+        const data = localStorage.getItem(STORE_KEY);
+        return data ? JSON.parse(data) : [];
+      } catch (e) {
+        console.error('[v0] Erro ao carregar localStorage:', e);
+        return [];
+      }
+    };
+    
+    const saveLocal = (arr) => {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+        return true;
+      } catch (e) {
+        console.error('[v0] Erro ao salvar no localStorage:', e);
+        return false;
+      }
+    };
+
+    let sales = [];
+    const rows = document.querySelector('#rows');
+    const splash = document.querySelector('#splash');
+    const btnNew = document.querySelector('#btnNew');
+    const dlg = document.querySelector('#dlg');
+    const formSale = document.querySelector('#formSale');
+    const prodBody = document.querySelector('#prodBody');
+    const payBody  = document.querySelector('#payBody');
+    const tplProdRow = document.querySelector('#tplProdRow');
+    const tplPayRow  = document.querySelector('#tplPayRow');
+    const importFile = document.querySelector('#importFile');
+    let editingId = null;
+
+    function calcSaleTotals(sale) {
+      const totVenda = sum(sale.products, p=>+p.price||0);
+      const totCusto = sum(sale.products, p=>+p.cost||0);
+      const totTaxa  = sum(sale.products, p=>+p.fee||0);
+      const lucro = totTaxa - totCusto;
+      return {totVenda, totCusto, totTaxa, lucro};
+    }
+
+    function render(){
+      rows.innerHTML = '';
+      for (const s of sales){
+        const t = calcSaleTotals(s);
+        const payStr = (s.payments||[]).map(p=>{
+          const parc = p.installments ? ` ${p.installments}` : '';
+          const det  = p.detail ? ` ${p.detail}` : '';
+          return `${p.method}${parc}${det}: ${fmt.format(+p.amount||0)}`;
+        }).join(' • ');
+        const tr = document.createElement('tr');
+        tr.className = 'border-t border-white/10 hover:bg-white/5';
+        tr.innerHTML = `
+          <td class="p-3">${s.date||''}</td>
+          <td class="p-3">${s.os||''}</td>
+          <td class="p-3">${(s.products||[]).map(p=>p.name).join(', ')}</td>
+          <td class="p-3 text-right">${fmt.format(t.totCusto)}</td>
+          <td class="p-3 text-right">${fmt.format(t.totVenda)}</td>
+          <td class="p-3 text-right">${fmt.format(t.totTaxa)}</td>
+          <td class="p-3 text-right">${fmt.format(t.lucro)}</td>
+          <td class="p-3">${payStr}</td>
+          <td class="p-3">
+            <button class="px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 edit" data-id="${s.id}">Editar</button>
+            <button class="px-2 py-1 rounded-lg bg-red-600/80 hover:bg-red-600 delete" data-id="${s.id}">Excluir</button>
+          </td>`;
+        rows.appendChild(tr);
+      }
+      // KPIs
+      const totVenda = sum(sales, s=>calcSaleTotals(s).totVenda);
+      const totCusto = sum(sales, s=>calcSaleTotals(s).totCusto);
+      const totTaxa  = sum(sales, s=>calcSaleTotals(s).totTaxa);
+      const lucro    = totTaxa - totCusto;
+      document.getElementById('kpiQtd').textContent = new Intl.NumberFormat('pt-BR').format(sales.length);
+      document.getElementById('kpiFat').textContent = fmt.format(totVenda);
+      document.getElementById('kpiTax').textContent = fmt.format(totCusto);
+      document.getElementById('kpiLucro').textContent = fmt.format(lucro);
+    }
+
+    function hideSplash(){ splash.classList.add('hide'); setTimeout(()=> splash.style.display='none', 400); }
+
+    function addProdRow() { prodBody.append(tplProdRow.content.cloneNode(true)); }
+    function addPayRow()  { payBody.append(tplPayRow.content.cloneNode(true)); }
+    function resetForm() {
+      formSale.reset();
+      prodBody.innerHTML = ''; payBody.innerHTML = '';
+      addProdRow(); addPayRow();
+      formSale.querySelector('[name=date]').valueAsDate = new Date();
+    }
+
+    payBody.addEventListener('change', (e)=>{
+      if (e.target.name === 'method') {
+        const tr = e.target.closest('tr');
+        const selParc = tr.querySelector('[name=installments]');
+        if (e.target.value === 'Crédito') { selParc.disabled = false; selParc.classList.remove('opacity-50'); }
+        else { selParc.value = ''; selParc.disabled = true; selParc.classList.add('opacity-50'); }
+      }
+    });
+
+    btnNew.addEventListener('click', ()=>{ resetForm(); editingId=null; dlg.showModal(); });
+    document.getElementById('btnClose').addEventListener('click', ()=> dlg.close());
+    document.addEventListener('click', async (e)=>{
+      if (e.target.classList.contains('delRow')) e.target.closest('tr').remove();
+      if (e.target.id==='addProd') addProdRow();
+      if (e.target.id==='addPay') addPayRow();
+
+      if (e.target.classList.contains('delete')) {
+        const id = e.target.dataset.id;
+        sales = sales.filter(s=>s.id!==id);
+        render();
+      }
+      if (e.target.classList.contains('edit')) {
+        const id = e.target.dataset.id;
+        const s = sales.find(x=>x.id===id); if (!s) return;
+        editingId = id;
+        resetForm();
+        formSale.querySelector('[name=date]').value = s.date || '';
+        formSale.querySelector('[name=os]').value = s.os || '';
+        prodBody.innerHTML=''; (s.products||[]).forEach(p=>{ addProdRow(); const tr=prodBody.lastElementChild;
+          tr.querySelector('[name=name]').value=p.name||''; tr.querySelector('[name=cost]').value=p.cost; tr.querySelector('[name=price]').value=p.price; tr.querySelector('[name=fee]').value=p.fee; });
+        payBody.innerHTML=''; (s.payments||[]).forEach(p=>{ addPayRow(); const tr=payBody.lastElementChild;
+          tr.querySelector('[name=method]').value=p.method||'';
+          tr.querySelector('[name=detail]').value=p.detail||'';
+          const sel=tr.querySelector('[name=installments]'); sel.value=p.installments||''; if(p.method==='Crédito'){ sel.disabled=false; sel.classList.remove('opacity-50'); }
+          tr.querySelector('[name=amount]').value=p.amount; });
+        dlg.showModal();
+      }
+    });
+
+    formSale.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(formSale);
+      const sale = {
+        id: editingId || crypto.randomUUID(),
+        date: fd.get('date') || '',
+        os: fd.get('os') || '',
+        products: Array.from(prodBody.querySelectorAll('tr')).map(tr=>({
+          name:  (tr.querySelector('[name=name]')?.value || '').trim(),
+          cost:  parseBRL(tr.querySelector('[name=cost]')?.value || 0),
+          price: parseBRL(tr.querySelector('[name=price]')?.value || 0),
+          fee:   parseBRL(tr.querySelector('[name=fee]')?.value || 0)
+        })).filter(p=>p.name),
+        payments: Array.from(payBody.querySelectorAll('tr')).map(tr=>({
+          method: tr.querySelector('[name=method]')?.value || '',
+          detail: tr.querySelector('[name=detail]')?.value || '',
+          installments: tr.querySelector('[name=installments]')?.value || '',
+          amount: parseBRL(tr.querySelector('[name=amount]')?.value || 0)
+        })).filter(p=>p.amount>0)
+      };
+      
+      const i = sales.findIndex(x=>x.id===sale.id);
+      if (i>=0) sales[i]=sale; else sales.unshift(sale);
+      
+      saveLocal(sales);
+      render();
+      dlg.close();
+    });
+
+    document.getElementById('btnExport').addEventListener('click', ()=>{
+      const data = JSON.stringify(sales, null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `vendas_otica_flow_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      alert('Dados exportados com sucesso!');
+    });
+    
+    importFile.addEventListener('change', async (e)=>{
+      const file = e.target.files[0]; 
+      if (!file) return;
+      
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        
+        if (!Array.isArray(parsed)) {
+          alert('Arquivo JSON inválido. Deve conter uma lista de vendas.');
+          return;
+        }
+        
+        sales = parsed;
+        saveLocal(sales);
+        render();
+        alert(`${parsed.length} vendas importadas com sucesso!`);
+      } catch (error) {
+        alert('Erro ao importar arquivo. Verifique se é um JSON válido.');
+        console.error(error);
+      }
+      
+      e.target.value = '';
+    });
+
+    window.addEventListener('load', async ()=>{
+      console.log('[v0] Aplicação iniciada');
+      sales = loadLocal();
+      console.log('[v0] Carregou', sales.length, 'vendas');
+      render();
+      setTimeout(hideSplash, 500);
+    });
+  </script>
+</body>
+</html>
