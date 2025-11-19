@@ -82,7 +82,7 @@
       const data = localStorage.getItem(STORE_KEY);
       return data ? JSON.parse(data) : [];
     } catch (e) {
-      console.error('[v0] Relatório - erro ao carregar localStorage:', e);
+      console.error('[Relatório] Erro ao carregar localStorage:', e);
       return [];
     }
   };
@@ -95,11 +95,13 @@
       return day && month && year ? `${day}/${month}/${year}` : dateStr;
   };
 
-  // Função para converter a data ISO (yyyy-mm-dd) em objeto Date
+  // Função simplificada e robusta para converter a data ISO (yyyy-mm-dd) em objeto Date
   const parseDate = (dateStr) => { 
       if (!dateStr) return null;
-      // Adiciona T00:00:00 para evitar problemas de fuso horário
-      const d = new Date(dateStr + 'T00:00:00'); 
+      const parts = dateStr.split('-');
+      // Cria o objeto Date usando ano, mês (base 0) e dia
+      // Ex: 2023-11-20 -> (2023, 11-1, 20)
+      const d = new Date(parts[0], parts[1] - 1, parts[2]); 
       if (!isNaN(d.getTime())) return d;
       return null;
   };
@@ -116,6 +118,7 @@
     const a = parseDate(d1);
     const b = d2 instanceof Date ? d2 : parseDate(d2);
     if (!a || !b) return false;
+    // Compara ano e mês (getMonth é base 0: Jan=0, Dez=11)
     return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth();
   }
   
@@ -137,8 +140,11 @@
       if (s.date) {
         const d = parseDate(s.date);
         if (d && !isNaN(d.getTime())) {
+          // A chave é yyyy-mm
           const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
           monthsSet.add(key);
+        } else {
+            console.warn(`[Relatório] Data inválida/não lida: ${s.date}`);
         }
       }
     });
@@ -161,7 +167,7 @@
       const option = new Option(label, m);
       
       // Adiciona apenas se não for o mesmo mês/ano que o "Mês atual" (evita repetição)
-      const now = new Date();
+      const now = new new Date();
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       if (m !== currentMonthKey) {
         select.add(option);
@@ -170,9 +176,13 @@
   }
 
   async function render(){
-    // Garante que todas as vendas sejam carregadas
     const sales = loadLocal();
-    console.log('[v0] Relatório - total de vendas carregadas:', sales.length);
+    console.log('[Relatório] Total de vendas carregadas:', sales.length);
+    
+    // Loga as 5 primeiras datas para verificação
+    sales.slice(0, 5).forEach(s => {
+        if (s.date) console.log(`[Relatório] Exemplo de Data: ${s.date} -> Parseado: ${parseDate(s.date)}`);
+    });
     
     // Popular o filtro com os meses disponíveis
     populateMonthFilter(sales);
@@ -185,11 +195,9 @@
     
     if (filterValue === 'current') {
       const now = new Date();
-      // O filtro agora usa parseDate() que lida corretamente com o formato ISO
       filteredSales = sales.filter(s=> s.date && sameMonth(s.date, now));
     } else {
       const [year, month] = filterValue.split('-');
-      // Filtro para mês específico
       filteredSales = sales.filter(s => {
         if (!s.date) return false;
         const d = parseDate(s.date);
@@ -198,7 +206,7 @@
       });
     }
     
-    console.log('[v0] Relatório - vendas filtradas:', filteredSales.length, 'para o período:', filterValue);
+    console.log('[Relatório] Vendas filtradas:', filteredSales.length, 'para o período:', filterValue);
     
     // Ordena as vendas filtradas
     filteredSales.sort(compareDates);
