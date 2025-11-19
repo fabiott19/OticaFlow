@@ -19,10 +19,23 @@
     #splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0c1822;z-index:50;transition:opacity .3s ease}
     #splash.hide{opacity:0;pointer-events:none}
     .status-badge{position:fixed;bottom:1rem;right:1rem;padding:0.5rem 1rem;rounded:0.5rem;font-size:0.75rem;z-index:40;transition:all 0.3s}
+    /* Estilo para topo opaco, removendo a classe glass */
+    .header-fixed{ background-color: #0b1720; }
+    /* Ajuste para o modal mais claro */
+    #dlg.custom-dialog {
+        background-color: #1f3442; /* Tom mais claro para destacar */
+        border-color: rgba(255, 255, 255, .15);
+    }
+    /* Ajuste para o cabeçalho fixo (X visível) */
+    .modal-header-sticky {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background-color: #1f3442; /* Cor de fundo igual à do modal para cobrir o conteúdo ao rolar */
+    }
   </style>
 </head>
 <body>
-  <!-- Splash -->
   <div id="splash">
     <div class="flex flex-col items-center gap-4">
       <img src="logo-otica-flow.png" alt="Ótica Flow" class="h-80 w-80 object-contain" />
@@ -30,13 +43,11 @@
     </div>
   </div>
 
-  <!-- Badge de status de sincronização -->
   <div id="syncStatus" class="status-badge bg-slate-700/90 text-white rounded-lg" style="display:none">
     <span id="syncText">Sincronizando...</span>
   </div>
 
-  <!-- Topo -->
-  <header class="sticky top-0 z-30 glass border-b border-white/10 text-slate-100">
+  <header class="sticky top-0 z-30 header-fixed border-b border-white/10 text-slate-100">
     <div class="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between">
       <div class="flex items-center">
         <img src="logo-otica-flow.png" alt="Ótica Flow" class="h-32 w-32 object-contain" />
@@ -56,8 +67,23 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Vendas</p><p id="kpiQtd" class="text-2xl font-semibold">0</p></div>
         <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Faturamento</p><p id="kpiFat" class="text-2xl font-semibold">R$ 0,00</p></div>
-        <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Taxas</p><p id="kpiTax" class="text-2xl font-semibold">R$ 0,00</p></div>
+        <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Ticket Médio</p><p id="kpiTicket" class="text-2xl font-semibold">R$ 0,00</p></div>
         <div class="rounded-2xl p-4 border border-white/10"><p class="text-xs opacity-70">Lucro (Taxa − Custo)</p><p id="kpiLucro" class="text-2xl font-semibold">R$ 0,00</p></div>
+      </div>
+    </section>
+
+    <section class="card rounded-2xl p-5">
+      <h2 class="font-semibold mb-3">Filtrar Vendas</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <label class="text-sm">Pesquisar
+          <input id="filterSearch" type="search" class="input w-full rounded-lg px-2 py-1.5 mt-1" placeholder="Buscar por OS, Produto ou Cliente">
+        </label>
+        <label class="text-sm">Data Início
+          <input id="filterDateStart" type="date" class="input w-full rounded-lg px-2 py-1.5 mt-1">
+        </label>
+        <label class="text-sm">Data Fim
+          <input id="filterDateEnd" type="date" class="input w-full rounded-lg px-2 py-1.5 mt-1">
+        </label>
       </div>
     </section>
 
@@ -81,10 +107,9 @@
     </section>
   </main>
 
-  <!-- Modal Nova venda -->
-  <dialog id="dlg" class="rounded-2xl p-0 bg-[#0f1f2a] text-slate-100 w-[min(900px,95vw)] border border-white/10">
+  <dialog id="dlg" class="rounded-2xl p-0 bg-transparent text-slate-100 w-[min(900px,95vw)] border border-white/10 custom-dialog">
     <form id="formSale">
-      <div class="p-4 border-b border-white/10 flex items-center justify-between">
+      <div class="p-4 border-b border-white/10 flex items-center justify-between modal-header-sticky">
         <h3 class="font-semibold">Nova venda</h3>
         <button type="button" id="btnClose" class="px-3 py-1.5 rounded-lg btn-ghost">✕</button>
       </div>
@@ -141,11 +166,16 @@
     </form>
   </dialog>
 
-  <!-- Templates -->
   <template id="tplProdRow">
     <tr>
       <td class="p-1"><input name="name" required class="input w-full rounded-lg px-2 py-1.5" placeholder="Ex: Armação Hess"></td>
-      <td class="p-1"><input name="cost" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00"></td>
+      <td class="p-1">
+        <input name="cost" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00">
+        <div class="flex items-center justify-end gap-1 mt-1">
+            <input type="checkbox" name="costZeroConfirmed" class="text-sm rounded border-gray-600 bg-gray-700 focus:ring-teal-500">
+            <span class="text-xs opacity-70">Custo Zero (Ok)</span>
+        </div>
+      </td>
       <td class="p-1"><input name="price" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00"></td>
       <td class="p-1"><input name="fee" inputmode="numeric" class="input w-full rounded-lg px-2 py-1.5 text-right" placeholder="0,00"></td>
       <td class="p-1 text-right"><button type="button" class="btn-ghost px-2 py-1 rounded-lg delRow">✕</button></td>
@@ -180,6 +210,77 @@
       const n=parseFloat(v); return Number.isFinite(n)?n:0;
     };
     const sum = (arr,sel) => arr.reduce((a,x)=>a+sel(x),0);
+    // Função para converter data yyyy-mm-dd para objeto Date
+    const parseDate = (dateStr) => { 
+        if (!dateStr) return null;
+        // Tenta o formato ISO (yyyy-mm-dd) primeiro
+        const d = new Date(dateStr + 'T00:00:00'); // Adiciona T00:00:00 para evitar problemas de fuso horário
+        if (!isNaN(d.getTime())) return d;
+        return null;
+    };
+    
+    // Função para formatar a data para dd/mm/aaaa
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        // Assume que a data está no formato yyyy-mm-dd
+        const [year, month, day] = dateStr.split('-');
+        return day && month && year ? `${day}/${month}/${year}` : dateStr;
+    };
+    
+    // Função de comparação para ordenação: mais recente primeiro
+    const compareDates = (a, b) => {
+        const dateA = parseDate(a.date);
+        const dateB = parseDate(b.date);
+        
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1; 
+        if (!dateB) return -1; 
+        
+        return dateB.getTime() - dateA.getTime(); 
+    };
+    // Função de filtragem (mantida a mesma)
+    const filterSales = (sales, searchTerm, dateStart, dateEnd) => {
+        const term = (searchTerm || '').toLowerCase().trim();
+        let filtered = sales;
+
+        if (term) {
+            filtered = filtered.filter(s => {
+                const saleProducts = (s.products || []).map(p => p.name).join(', ').toLowerCase();
+                return (s.os || '').toLowerCase().includes(term) ||
+                       (s.clientName || '').toLowerCase().includes(term) ||
+                       (s.clientInfo || '').toLowerCase().includes(term) ||
+                       saleProducts.includes(term);
+            });
+        }
+
+        const startDate = parseDate(dateStart);
+        const endDate   = parseDate(dateEnd);
+
+        if (startDate || endDate) {
+            filtered = filtered.filter(s => {
+                const saleDate = parseDate(s.date);
+                if (!saleDate) return false;
+
+                let passesStart = true;
+                if (startDate) {
+                    passesStart = saleDate >= startDate;
+                }
+
+                let passesEnd = true;
+                if (endDate) {
+                    const endOfDay = new Date(endDate.getTime());
+                    endOfDay.setDate(endOfDay.getDate() + 1);
+                    endOfDay.setMilliseconds(endOfDay.getMilliseconds() - 1);
+                    passesEnd = saleDate <= endOfDay;
+                }
+                
+                return passesStart && passesEnd;
+            });
+        }
+
+        return filtered;
+    };
+
 
     const STORE_KEY = 'otica_flow_sales_v1';
 
@@ -214,6 +315,9 @@
     const tplProdRow = document.querySelector('#tplProdRow');
     const tplPayRow  = document.querySelector('#tplPayRow');
     const importFile = document.querySelector('#importFile');
+    const filterSearch = document.querySelector('#filterSearch');
+    const filterDateStart = document.querySelector('#filterDateStart');
+    const filterDateEnd = document.querySelector('#filterDateEnd');
     let editingId = null;
 
     function calcSaleTotals(sale) {
@@ -221,25 +325,46 @@
       const totCusto = sum(sale.products, p=>+p.cost||0);
       const totTaxa  = sum(sale.products, p=>+p.fee||0);
       const lucro = totTaxa - totCusto;
-      return {totVenda, totCusto, totTaxa, lucro};
+      
+      // Checa se ALGUM produto tem custo zero E NÃO foi confirmado
+      const isCostUnconfirmed = (sale.products || []).some(p => 
+          (+p.cost || 0) === 0 && !p.costZeroConfirmed
+      );
+      
+      return {totVenda, totCusto, totTaxa, lucro, isCostUnconfirmed};
     }
 
     function render(){
+      // Ordena TODAS as vendas da mais recente para a mais antiga
+      const sortedSales = [...sales].sort(compareDates);
+
+      // Aplica o filtro
+      const filteredSales = filterSales(
+          sortedSales, 
+          filterSearch.value, 
+          filterDateStart.value, 
+          filterDateEnd.value
+      );
+
       rows.innerHTML = '';
-      for (const s of sales){
+      for (const s of filteredSales){
         const t = calcSaleTotals(s);
         const payStr = (s.payments||[]).map(p=>{
           const parc = p.installments ? ` ${p.installments}` : '';
           const det  = p.detail ? ` ${p.detail}` : '';
           return `${p.method}${parc}${det}: ${fmt.format(+p.amount||0)}`;
         }).join(' • ');
+        
+        // Lógica do Alerta: Custo zero NÃO CONFIRMADO
+        const costAlert = t.isCostUnconfirmed ? ' ⚠️' : ''; 
+        
         const tr = document.createElement('tr');
         tr.className = 'border-t border-white/10 hover:bg-white/5';
         tr.innerHTML = `
-          <td class="p-3">${s.date||''}</td>
+          <td class="p-3">${formatDate(s.date || '')}</td>
           <td class="p-3">${s.os||''}</td>
           <td class="p-3">${(s.products||[]).map(p=>p.name).join(', ')}</td>
-          <td class="p-3 text-right">${fmt.format(t.totCusto)}</td>
+          <td class="p-3 text-right">${fmt.format(t.totCusto)}${costAlert}</td>
           <td class="p-3 text-right">${fmt.format(t.totVenda)}</td>
           <td class="p-3 text-right">${fmt.format(t.totTaxa)}</td>
           <td class="p-3 text-right">${fmt.format(t.lucro)}</td>
@@ -251,13 +376,16 @@
         rows.appendChild(tr);
       }
       // KPIs
-      const totVenda = sum(sales, s=>calcSaleTotals(s).totVenda);
-      const totCusto = sum(sales, s=>calcSaleTotals(s).totCusto);
-      const totTaxa  = sum(sales, s=>calcSaleTotals(s).totTaxa);
+      const totVenda = sum(filteredSales, s=>calcSaleTotals(s).totVenda);
+      const totCusto = sum(filteredSales, s=>calcSaleTotals(s).totCusto);
+      const totTaxa  = sum(filteredSales, s=>calcSaleTotals(s).totTaxa);
       const lucro    = totTaxa - totCusto;
-      document.getElementById('kpiQtd').textContent = new Intl.NumberFormat('pt-BR').format(sales.length);
+      const qtdVendas = filteredSales.length;
+      const ticketMedio = qtdVendas > 0 ? lucro / qtdVendas : 0;
+      
+      document.getElementById('kpiQtd').textContent = new Intl.NumberFormat('pt-BR').format(qtdVendas);
       document.getElementById('kpiFat').textContent = fmt.format(totVenda);
-      document.getElementById('kpiTax').textContent = fmt.format(totCusto);
+      document.getElementById('kpiTicket').textContent = fmt.format(ticketMedio); // Novo KPI
       document.getElementById('kpiLucro').textContent = fmt.format(lucro);
     }
 
@@ -272,6 +400,11 @@
       formSale.querySelector('[name=date]').valueAsDate = new Date();
     }
 
+    // Event listeners para os filtros
+    filterSearch.addEventListener('input', render);
+    filterDateStart.addEventListener('change', render);
+    filterDateEnd.addEventListener('change', render);
+
     payBody.addEventListener('change', (e)=>{
       if (e.target.name === 'method') {
         const tr = e.target.closest('tr');
@@ -281,7 +414,13 @@
       }
     });
 
-    btnNew.addEventListener('click', ()=>{ resetForm(); editingId=null; dlg.showModal(); });
+    btnNew.addEventListener('click', ()=>{ 
+        resetForm(); 
+        // Atualiza o título do modal
+        dlg.querySelector('h3').textContent = 'Nova venda';
+        editingId=null; 
+        dlg.showModal(); 
+    });
     document.getElementById('btnClose').addEventListener('click', ()=> dlg.close());
     document.addEventListener('click', async (e)=>{
       if (e.target.classList.contains('delRow')) e.target.closest('tr').remove();
@@ -293,7 +432,7 @@
         const sale = sales.find(s=>s.id===id);
         if (!sale) return;
         
-        const saleInfo = `OS: ${sale.os || 'S/N'} - Data: ${sale.date || 'S/D'}`;
+        const saleInfo = `OS: ${sale.os || 'S/N'} - Data: ${formatDate(sale.date || 'S/D')}`;
         const confirmed = confirm(`Tem certeza que deseja excluir esta venda?\n\n${saleInfo}\n\nEsta ação não pode ser desfeita.`);
         
         if (!confirmed) return;
@@ -308,13 +447,28 @@
         const s = sales.find(x=>x.id===id); if (!s) return;
         editingId = id;
         resetForm();
+        
+        // Atualiza o título do modal
+        dlg.querySelector('h3').textContent = 'Editar venda';
+        
         formSale.querySelector('[name=date]').value = s.date || '';
         formSale.querySelector('[name=os]').value = s.os || '';
         formSale.querySelector('[name=clientName]').value = s.clientName || '';
         formSale.querySelector('[name=clientPhone]').value = s.clientPhone || '';
         formSale.querySelector('[name=clientInfo]').value = s.clientInfo || '';
-        prodBody.innerHTML=''; (s.products||[]).forEach(p=>{ addProdRow(); const tr=prodBody.lastElementChild;
-          tr.querySelector('[name=name]').value=p.name||''; tr.querySelector('[name=cost]').value=p.cost; tr.querySelector('[name=price]').value=p.price; tr.querySelector('[name=fee]').value=p.fee; });
+        
+        // Lógica de carregamento de produtos (incluindo o novo campo)
+        prodBody.innerHTML=''; (s.products||[]).forEach(p=>{ 
+            addProdRow(); 
+            const tr=prodBody.lastElementChild;
+            tr.querySelector('[name=name]').value=p.name||''; 
+            tr.querySelector('[name=cost]').value=p.cost; 
+            tr.querySelector('[name=price]').value=p.price; 
+            tr.querySelector('[name=fee]').value=p.fee; 
+            // Carrega o estado do novo checkbox
+            tr.querySelector('[name=costZeroConfirmed]').checked = !!p.costZeroConfirmed; 
+        });
+        
         payBody.innerHTML=''; (s.payments||[]).forEach(p=>{ addPayRow(); const tr=payBody.lastElementChild;
           tr.querySelector('[name=method]').value=p.method||'';
           const sel=tr.querySelector('[name=installments]'); sel.value=p.installments||''; if(p.method==='Crédito'){ sel.disabled=false; sel.classList.remove('opacity-50'); }
@@ -337,7 +491,9 @@
           name:  (tr.querySelector('[name=name]')?.value || '').trim(),
           cost:  parseBRL(tr.querySelector('[name=cost]')?.value || 0),
           price: parseBRL(tr.querySelector('[name=price]')?.value || 0),
-          fee:   parseBRL(tr.querySelector('[name=fee]')?.value || 0)
+          fee:   parseBRL(tr.querySelector('[name=fee]')?.value || 0),
+          // Salva o estado do novo checkbox
+          costZeroConfirmed: tr.querySelector('[name=costZeroConfirmed]')?.checked || false 
         })).filter(p=>p.name),
         payments: Array.from(payBody.querySelectorAll('tr')).map(tr=>({
           method: tr.querySelector('[name=method]')?.value || '',
