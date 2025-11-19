@@ -1,20 +1,350 @@
-<script>
-    // ... (variáveis e funções omitidas) ...
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ótica Flow</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" href="logo-otica-flow.png" type="image/png" />
+  <style>
+    :root{--bg:#0b1720;--teal:#94d2bd}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,var(--bg),#0f2430);color:#e6edf4}
+    .glass{background:rgba(255,255,255,.06);backdrop-filter:blur(8px)}
+    .card{background:#0f1f2a;border:1px solid rgba(255,255,255,.08)}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.18)}
+    .btn-muted{opacity:.8}
+    .input{background:#0d1b24;border:1px solid rgba(255,255,255,.18);color:#e6edf4}
+    .input:focus{outline:2px solid var(--teal);border-color:transparent}
+    .input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1)}
+    dialog{background:#0f1f2a;border:1px solid rgba(255,255,255,.08);padding:0;border-radius:1rem}
+    dialog::backdrop{background:rgba(0,0,0,.6)}
+    .product-row:not(:first-child){border-top:1px solid rgba(255,255,255,.08)}
+    .tbl th{background:#0f2630}
+    #productsList li{padding:8px;border-bottom:1px solid rgba(255,255,255,.08)}
+  </style>
+</head>
+<body>
+  <div class="max-w-7xl mx-auto p-4 space-y-6">
+    <header class="py-3 flex items-center justify-between glass rounded-2xl px-5 border border-white/10 sticky top-4 z-20">
+      <div class="flex items-center gap-3">
+        <img src="logo-otica-flow.png" class="h-10 w-10 object-contain" alt="Ótica Flow" />
+        <h1 class="text-xl font-bold">Gestão de Vendas - Ótica Flow</h1>
+      </div>
+      <div class="flex gap-2">
+        <a href="relatorio.html" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600">Relatório Mensal</a>
+        <button id="btnNewSale" class="px-3 py-2 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold shadow-lg shadow-teal-500/30">➕ Nova Venda</button>
+      </div>
+    </header>
 
-    function render(){
-      // ... (lógica de ordenação e filtro omitida) ...
+    <section class="card rounded-2xl p-4 flex justify-between items-center">
+        <div class="flex gap-4 items-center">
+            <label class="text-sm font-medium">Ordenar por:</label>
+            <select id="sortField" class="input px-3 py-2 rounded-lg">
+                <option value="date">Data (Mais Recente)</option>
+                <option value="os">OS</option>
+                <option value="profit">Lucro</option>
+            </select>
+            <label class="text-sm font-medium">Buscar:</label>
+            <input type="text" id="searchQuery" placeholder="OS, Produto, Cliente..." class="input px-3 py-2 rounded-lg w-64"/>
+        </div>
+        <div class="flex gap-2">
+            <button id="btnExport" class="px-3 py-2 btn-ghost rounded-lg hover:bg-white/10">Exportar Dados</button>
+            <label for="importFile" class="px-3 py-2 btn-ghost rounded-lg hover:bg-white/10 cursor-pointer">Importar Dados</label>
+            <input type="file" id="importFile" accept="application/json" class="hidden"/>
+        </div>
+    </section>
 
+    <section class="grid grid-cols-4 gap-4">
+      <div class="card rounded-xl p-4">
+        <p class="text-sm opacity-70">Total de Vendas (Filtradas)</p>
+        <p id="kpiSales" class="text-2xl font-bold">0</p>
+      </div>
+      <div class="card rounded-xl p-4">
+        <p class="text-sm opacity-70">Custo Total</p>
+        <p id="kpiCost" class="text-2xl font-bold text-red-400">R$ 0,00</p>
+      </div>
+      <div class="card rounded-xl p-4">
+        <p class="text-sm opacity-70">Venda Total</p>
+        <p id="kpiRevenue" class="text-2xl font-bold text-blue-400">R$ 0,00</p>
+      </div>
+      <div class="card rounded-xl p-4">
+        <p class="text-sm opacity-70">Lucro Total</p>
+        <p id="kpiProfit" class="text-2xl font-bold text-teal-400">R$ 0,00</p>
+      </div>
+    </section>
+
+    <section class="card rounded-2xl p-5">
+      <h2 class="font-semibold mb-3">Vendas Recentes</h2>
+      <div class="overflow-auto rounded-xl border border-white/10">
+        <table class="w-full text-sm tbl">
+          <thead>
+            <tr class="text-left">
+              <th class="p-3">Data</th><th class="p-3">OS</th><th class="p-3">Produtos</th>
+              <th class="p-3 text-right">Custo</th><th class="p-3 text-right">Venda</th>
+              <th class="p-3 text-right">Taxa</th><th class="p-3 text-right">Lucro</th><th class="p-3">Pagamentos</th>
+              <th class="p-3 w-[1%] whitespace-nowrap">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="9" class="p-4 text-center opacity-70">Nenhuma venda registrada.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="saleModal" class="w-full max-w-2xl rounded-2xl">
+    <form id="saleForm" class="p-6">
+      <h3 class="text-xl font-bold mb-4 text-white" id="modalTitle">Nova Venda</h3>
+      <input type="hidden" id="saleId" />
+      
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label for="saleDate" class="block text-sm font-medium mb-1">Data</label>
+          <input type="date" id="saleDate" required class="input w-full p-2 rounded-lg" />
+        </div>
+        <div>
+          <label for="saleOS" class="block text-sm font-medium mb-1">OS / Orçamento</label>
+          <input type="text" id="saleOS" placeholder="Opcional" class="input w-full p-2 rounded-lg" />
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label for="saleClient" class="block text-sm font-medium mb-1">Cliente</label>
+        <input type="text" id="saleClient" placeholder="Nome do Cliente (Opcional)" class="input w-full p-2 rounded-lg" />
+      </div>
+
+      <h4 class="font-semibold mb-2 mt-4 text-white">Produtos <button type="button" id="btnAddProduct" class="text-sm ml-2 bg-slate-700/50 hover:bg-slate-700 px-2 py-1 rounded-full">➕ Adicionar</button></h4>
+      <div id="productsContainer" class="space-y-2 border border-white/10 rounded-lg p-3">
+        <p id="noProducts" class="text-sm opacity-70 text-center">Nenhum produto adicionado.</p>
+      </div>
+
+      <h4 class="font-semibold mb-2 mt-4 text-white">Pagamentos <button type="button" id="btnAddPayment" class="text-sm ml-2 bg-slate-700/50 hover:bg-slate-700 px-2 py-1 rounded-full">➕ Adicionar</button></h4>
+      <div id="paymentsContainer" class="space-y-2 border border-white/10 rounded-lg p-3">
+        <p id="noPayments" class="text-sm opacity-70 text-center">Nenhum pagamento adicionado.</p>
+      </div>
+
+      <div class="flex justify-end gap-3 mt-6">
+        <button type="button" id="btnCancel" class="px-4 py-2 rounded-lg btn-ghost hover:bg-white/10">Cancelar</button>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-900 font-semibold shadow-lg shadow-teal-500/30">Salvar Venda</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="productTemplate">
+    <div class="product-row grid grid-cols-5 gap-3 items-end p-2">
+      <div class="col-span-2">
+        <label class="block text-xs font-medium mb-1">Nome/Descrição</label>
+        <input type="text" placeholder="Lente, Armação, Serviço..." class="input w-full p-1.5 rounded-lg product-name" required />
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Custo</label>
+        <input type="number" step="0.01" value="0.00" class="input w-full p-1.5 rounded-lg product-cost" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1">Preço Venda</label>
+        <input type="number" step="0.01" value="0.00" class="input w-full p-1.5 rounded-lg product-price" required />
+      </div>
+      <div class="flex items-center justify-end">
+        <button type="button" class="text-red-500 hover:text-red-400 btn-remove-product p-1.5">🗑️</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="paymentTemplate">
+    <div class="payment-row grid grid-cols-5 gap-3 items-end p-2">
+      <div class="col-span-1">
+        <label class="block text-xs font-medium mb-1">Valor Pago</label>
+        <input type="number" step="0.01" value="0.00" class="input w-full p-1.5 rounded-lg payment-amount" required />
+      </div>
+      <div class="col-span-1">
+        <label class="block text-xs font-medium mb-1">Método</label>
+        <select class="input w-full p-1.5 rounded-lg payment-method">
+          <option value="Dinheiro">Dinheiro</option>
+          <option value="Pix">Pix</option>
+          <option value="Débito">Débito</option>
+          <option value="Crédito">Crédito</option>
+          <option value="Boleto">Boleto</option>
+        </select>
+      </div>
+      <div class="col-span-1">
+        <label class="block text-xs font-medium mb-1">Parcelas</label>
+        <input type="number" value="" placeholder="Opcional" class="input w-full p-1.5 rounded-lg payment-installments" />
+      </div>
+      <div class="col-span-1">
+        <label class="block text-xs font-medium mb-1">Detalhe</label>
+        <input type="text" value="" placeholder="Opcional (ex: 2x, Banco X)" class="input w-full p-1.5 rounded-lg payment-detail" />
+      </div>
+      <div class="flex items-center justify-end">
+        <button type="button" class="text-red-500 hover:text-red-400 btn-remove-payment p-1.5">🗑️</button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    const sum = (arr, sel) => arr.reduce((a, x) => a + sel(x), 0);
+    const STORE_KEY = 'otica_flow_sales_v1';
+    
+    let sales = [];
+    let isEditing = false;
+
+    const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
+
+    // --- Data Storage and Handling ---
+    const loadLocal = () => {
+      try {
+        const data = localStorage.getItem(STORE_KEY);
+        return data ? JSON.parse(data) : [];
+      } catch (e) {
+        console.error('[v0] Erro ao carregar localStorage:', e);
+        return [];
+      }
+    };
+
+    const saveLocal = (data) => {
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    };
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        const [year, month, day] = dateStr.split('-');
+        return day && month && year ? `${day}/${month}/${year}` : dateStr;
+    };
+
+    const parseDate = (dateStr) => { 
+        if (!dateStr) return null;
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            // new Date(year, monthIndex, day)
+            const d = new Date(parts[0], parts[1] - 1, parts[2]);
+            if (!isNaN(d.getTime())) return d;
+        }
+        return null;
+    };
+
+    function calcSaleTotals(sale) {
+        const totVenda = (sale.products || []).reduce((a, p) => a + (+p.price || 0), 0);
+        const totCusto = (sale.products || []).reduce((a, p) => a + (+p.cost || 0), 0);
+        const totPayments = (sale.payments || []).reduce((a, p) => a + (+p.amount || 0), 0);
+        
+        // Lucro é o valor efetivamente recebido (payments) menos o custo.
+        // Se payments for menor que a venda, a taxa pode ser ajustada.
+        // Simplificação: Taxa = Venda Total
+        const totTaxa = totVenda; 
+        const lucro = totTaxa - totCusto;
+        
+        // Alerta se o custo for zero e não for uma OS
+        const isCostUnconfirmed = !sale.os && totCusto === 0 && totVenda > 0;
+        
+        return { totVenda, totCusto, totTaxa, lucro, isCostUnconfirmed };
+    }
+
+    // --- Modal Handling ---
+    const saleModal = document.getElementById('saleModal');
+    const saleForm = document.getElementById('saleForm');
+    const productsContainer = document.getElementById('productsContainer');
+    const paymentsContainer = document.getElementById('paymentsContainer');
+    const productTemplate = document.getElementById('productTemplate');
+    const paymentTemplate = document.getElementById('paymentTemplate');
+    const noProducts = document.getElementById('noProducts');
+    const noPayments = document.getElementById('noPayments');
+
+    function toggleEmptyMessage(container, emptyMsg) {
+        if (container.children.length > 0) {
+            emptyMsg.style.display = 'none';
+        } else {
+            emptyMsg.style.display = 'block';
+        }
+    }
+
+    function addProduct(data = {}) {
+        const clone = productTemplate.content.cloneNode(true);
+        const row = clone.querySelector('.product-row');
+        row.querySelector('.product-name').value = data.name || '';
+        row.querySelector('.product-cost').value = (data.cost || 0).toFixed(2);
+        row.querySelector('.product-price').value = (data.price || 0).toFixed(2);
+
+        row.querySelector('.btn-remove-product').addEventListener('click', () => {
+            row.remove();
+            toggleEmptyMessage(productsContainer, noProducts);
+        });
+        
+        productsContainer.appendChild(row);
+        toggleEmptyMessage(productsContainer, noProducts);
+    }
+    
+    function addPayment(data = {}) {
+        const clone = paymentTemplate.content.cloneNode(true);
+        const row = clone.querySelector('.payment-row');
+        row.querySelector('.payment-amount').value = (data.amount || 0).toFixed(2);
+        row.querySelector('.payment-method').value = data.method || 'Dinheiro';
+        row.querySelector('.payment-installments').value = data.installments || '';
+        row.querySelector('.payment-detail').value = data.detail || '';
+
+        row.querySelector('.btn-remove-payment').addEventListener('click', () => {
+            row.remove();
+            toggleEmptyMessage(paymentsContainer, noPayments);
+        });
+        
+        paymentsContainer.appendChild(row);
+        toggleEmptyMessage(paymentsContainer, noPayments);
+    }
+
+    // --- Main Render Function ---
+    function render() {
+      const rows = document.getElementById('rows');
       rows.innerHTML = '';
+      
+      const searchQuery = document.getElementById('searchQuery').value.toLowerCase();
+      const sortField = document.getElementById('sortField').value;
+      
+      let filteredSales = sales.filter(s => {
+          if (!searchQuery) return true;
+          const searchIn = [
+              s.os, s.client,
+              ...(s.products || []).map(p => p.name)
+          ].join(' ').toLowerCase();
+          return searchIn.includes(searchQuery);
+      });
+
+      // Ordenação
+      filteredSales.sort((a, b) => {
+          if (sortField === 'date') {
+              const dateA = parseDate(a.date);
+              const dateB = parseDate(b.date);
+              if (!dateA || !dateB) return 0;
+              // Mais recente primeiro (decrescente)
+              return dateB.getTime() - dateA.getTime(); 
+          } else if (sortField === 'os') {
+              // Ordena por OS (string)
+              const osA = a.os || '';
+              const osB = b.os || '';
+              return osB.localeCompare(osA);
+          } else if (sortField === 'profit') {
+              // Ordena por lucro (decrescente)
+              const profitA = calcSaleTotals(a).lucro;
+              const profitB = calcSaleTotals(b).lucro;
+              return profitB - profitA;
+          }
+          return 0;
+      });
+
+      if (filteredSales.length === 0) {
+        rows.innerHTML = '<tr><td colspan="9" class="p-4 text-center opacity-70">Nenhuma venda encontrada com os filtros atuais.</td></tr>';
+      }
+
       for (const s of filteredSales){
         const t = calcSaleTotals(s);
         const payStr = (s.payments||[]).map(p=>{
           const parc = p.installments ? ` ${p.installments}` : '';
-          const det  = p.detail ? ` ${p.detail}` : '';
+          const det  = p.detail ? ` (${p.detail})` : '';
           return `${p.method}${parc}${det}: ${fmt.format(+p.amount||0)}`;
         }).join(' • ');
         
-        // Lógica do Alerta: Custo zero NÃO CONFIRMADO
-        const costAlert = t.isCostUnconfirmed ? ' ⚠️' : ''; 
+        // Lógica do Alerta: Custo zero e não OS
+        const costAlert = t.isCostUnconfirmed ? '<span title="Custo não confirmado para venda sem OS" class="text-red-500 font-bold ml-1">⚠️</span>' : ''; 
         
         const tr = document.createElement('tr');
         tr.className = 'border-t border-white/10 hover:bg-white/5';
@@ -26,17 +356,191 @@
           <td class="p-3 text-right">${fmt.format(t.totVenda)}</td>
           <td class="p-3 text-right">${fmt.format(t.totTaxa)}</td>
           <td class="p-3 text-right">${fmt.format(t.lucro)}</td>
-          <td class="p-3">${payStr}</td>
-          <td class="p-3">
+          <td class="p-3 text-sm">${payStr}</td>
+          <td class="p-3 w-[1%] whitespace-nowrap">
             <button class="px-1.5 py-0.5 rounded-lg bg-slate-700 hover:bg-slate-600 edit" data-id="${s.id}">Editar</button>
             <button class="px-1 py-0.5 rounded-lg bg-red-600/80 hover:bg-red-600 delete" data-id="${s.id}">Excluir</button>
           </td>`;
         rows.appendChild(tr);
       }
-      // ... (lógica de KPIs omitida) ...
+
+      // KPIs
+      const tVenda = sum(filteredSales, s=>calcSaleTotals(s).totVenda);
+      const tCusto = sum(filteredSales, s=>calcSaleTotals(s).totCusto);
+      const tLucro = sum(filteredSales, s=>calcSaleTotals(s).lucro);
+
+      document.getElementById('kpiSales').textContent = filteredSales.length;
+      document.getElementById('kpiCost').textContent = fmt.format(tCusto);
+      document.getElementById('kpiRevenue').textContent = fmt.format(tVenda);
+      document.getElementById('kpiProfit').textContent = fmt.format(tLucro);
     }
 
-    // ... (restante do script omitido) ...
+    // --- Event Handlers ---
+
+    // Exibir modal de nova venda
+    document.getElementById('btnNewSale').addEventListener('click', () => {
+        isEditing = false;
+        document.getElementById('modalTitle').textContent = 'Nova Venda';
+        saleForm.reset();
+        document.getElementById('saleId').value = '';
+        productsContainer.innerHTML = '';
+        paymentsContainer.innerHTML = '';
+        addProduct(); // Adiciona um produto padrão
+        addPayment({ method: 'Dinheiro', amount: 0.00 }); // Adiciona um pagamento padrão
+        toggleEmptyMessage(productsContainer, noProducts);
+        toggleEmptyMessage(paymentsContainer, noPayments);
+        saleModal.showModal();
+        document.getElementById('saleDate').valueAsDate = new Date(); // Data de hoje
+    });
+
+    // Cancelar/Fechar modal
+    document.getElementById('btnCancel').addEventListener('click', () => {
+        saleModal.close();
+    });
+
+    // Adicionar Produto/Pagamento
+    document.getElementById('btnAddProduct').addEventListener('click', () => addProduct());
+    document.getElementById('btnAddPayment').addEventListener('click', () => addPayment());
+
+    // Submit do formulário (Salvar Venda)
+    saleForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const saleId = document.getElementById('saleId').value || generateId();
+        
+        // 1. Coleta Produtos
+        const products = Array.from(productsContainer.querySelectorAll('.product-row')).map(row => ({
+            name: row.querySelector('.product-name').value,
+            cost: parseFloat(row.querySelector('.product-cost').value) || 0,
+            price: parseFloat(row.querySelector('.product-price').value) || 0
+        })).filter(p => p.name || p.price > 0); // Filtra produtos vazios
+
+        // 2. Coleta Pagamentos
+        const payments = Array.from(paymentsContainer.querySelectorAll('.payment-row')).map(row => ({
+            amount: parseFloat(row.querySelector('.payment-amount').value) || 0,
+            method: row.querySelector('.payment-method').value,
+            installments: row.querySelector('.payment-installments').value,
+            detail: row.querySelector('.payment-detail').value
+        })).filter(p => p.amount > 0); // Filtra pagamentos com valor zero
+
+        if (products.length === 0) {
+            alert('Por favor, adicione pelo menos um produto com nome ou preço.');
+            return;
+        }
+
+        const newSale = {
+            id: saleId,
+            date: document.getElementById('saleDate').value,
+            os: document.getElementById('saleOS').value,
+            client: document.getElementById('saleClient').value,
+            products: products,
+            payments: payments,
+            timestamp: Date.now()
+        };
+
+        if (isEditing) {
+            const index = sales.findIndex(s => s.id === saleId);
+            if (index !== -1) {
+                sales[index] = newSale;
+            }
+        } else {
+            sales.unshift(newSale);
+        }
+
+        saveLocal(sales);
+        render();
+        saleModal.close();
+    });
+
+    // Ações de Tabela (Editar/Excluir)
+    document.getElementById('rows').addEventListener('click', (e) => {
+        const target = e.target;
+        const id = target.dataset.id;
+        if (!id) return;
+
+        if (target.classList.contains('edit')) {
+            const sale = sales.find(s => s.id === id);
+            if (!sale) return;
+
+            isEditing = true;
+            document.getElementById('modalTitle').textContent = 'Editar Venda';
+            
+            // Preencher campos
+            document.getElementById('saleId').value = sale.id;
+            document.getElementById('saleDate').value = sale.date;
+            document.getElementById('saleOS').value = sale.os;
+            document.getElementById('saleClient').value = sale.client;
+
+            // Limpar e Preencher Produtos
+            productsContainer.innerHTML = '';
+            paymentsContainer.innerHTML = '';
+            sale.products.forEach(p => addProduct(p));
+            sale.payments.forEach(p => addPayment(p));
+            toggleEmptyMessage(productsContainer, noProducts);
+            toggleEmptyMessage(paymentsContainer, noPayments);
+
+            saleModal.showModal();
+
+        } else if (target.classList.contains('delete')) {
+            if (confirm('Tem certeza que deseja EXCLUIR esta venda? Esta ação é irreversível.')) {
+                sales = sales.filter(s => s.id !== id);
+                saveLocal(sales);
+                render();
+            }
+        }
+    });
+
+    // Filtros e Ordenação
+    document.getElementById('searchQuery').addEventListener('input', render);
+    document.getElementById('sortField').addEventListener('change', render);
+
+    // Exportar e Importar
+    document.getElementById('btnExport').addEventListener('click', ()=>{
+      const data = JSON.stringify(sales, null, 2);
+      const blob = new Blob([data], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `vendas_otica_flow_${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      alert('Dados exportados com sucesso!');
+    });
+    
+    document.getElementById('importFile').addEventListener('change', async (e)=>{
+      const file = e.target.files[0]; 
+      if (!file) return;
+      
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        
+        if (!Array.isArray(parsed)) {
+          alert('Arquivo JSON inválido. Deve conter uma lista de vendas.');
+          return;
+        }
+        
+        // Adiciona um ID se estiver faltando (compatibilidade com versões antigas)
+        parsed.forEach(s => {
+            if (!s.id) s.id = generateId();
+        });
+        
+        sales = parsed;
+        saveLocal(sales);
+        render();
+        alert(`${parsed.length} vendas importadas com sucesso!`);
+      } catch (error) {
+        alert('Erro ao importar arquivo. Verifique se é um JSON válido.');
+        console.error(error);
+      }
+      
+      e.target.value = '';
+    });
+
+    // Inicialização
+    window.addEventListener('load', () => {
+      sales = loadLocal();
+      render();
+    });
   </script>
 </body>
 </html>
