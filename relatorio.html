@@ -40,7 +40,6 @@
         <p class="text-sm opacity-70">Visualize e imprima o relatório mensal.</p>
       </div>
       
-      <!-- Adicionando filtro de data por mês/ano -->
       <div class="mb-4 flex items-center gap-3 no-print">
         <label class="text-sm font-medium">Filtrar por período:</label>
         <select id="filterMonth" class="px-3 py-2 rounded-lg bg-slate-700 border border-white/10">
@@ -62,7 +61,6 @@
       </div>
     </section>
 
-    <!-- Totais do mês (aparece na impressão) -->
     <section id="totaisMes" class="p-4 rounded-xl border border-slate-300 bg-white text-slate-900">
       <h3 class="font-bold mb-2">Totais do período</h3>
       <div class="grid grid-cols-4 gap-4 text-lg">
@@ -89,15 +87,22 @@
     }
   };
 
-  function parseDataBrasileira(dataStr) {
-    if (!dataStr) return null;
-    const partes = dataStr.split('/');
-    if (partes.length === 3) {
-      // Formato: dd/mm/yyyy
-      return new Date(partes[2], partes[1] - 1, partes[0]);
-    }
-    return new Date(dataStr);
-  }
+  // NOVO: Função para formatar a data para dd/mm/aaaa
+  const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      // Assume que a data está no formato yyyy-mm-dd
+      const [year, month, day] = dateStr.split('-');
+      return day && month && year ? `${day}/${month}/${year}` : dateStr;
+  };
+  
+  // Função ajustada para garantir que a comparação de datas funcione corretamente
+  const parseDate = (dateStr) => { 
+      if (!dateStr) return null;
+      // Assume-se o formato yyyy-mm-dd
+      const d = new Date(dateStr + 'T00:00:00'); // Adiciona T00:00:00 para evitar problemas de fuso horário
+      if (!isNaN(d.getTime())) return d;
+      return null;
+  };
 
   function calcSaleTotals(sale) {
     const totVenda = (sale.products||[]).reduce((a,p)=>a+(+p.price||0),0);
@@ -108,17 +113,29 @@
   }
   
   function sameMonth(d1, d2){
-    const a = parseDataBrasileira(d1);
-    const b = d2 instanceof Date ? d2 : parseDataBrasileira(d2);
+    const a = parseDate(d1);
+    const b = d2 instanceof Date ? d2 : parseDate(d2);
     if (!a || !b) return false;
     return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth();
   }
+  
+  // Função de comparação para ordenação: mais recente primeiro
+  const compareDates = (a, b) => {
+      const dateA = parseDate(a.date);
+      const dateB = parseDate(b.date);
+      
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1; 
+      if (!dateB) return -1; 
+      
+      return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
+  };
 
   function populateMonthFilter(sales) {
     const monthsSet = new Set();
     sales.forEach(s => {
       if (s.date) {
-        const d = parseDataBrasileira(s.date);
+        const d = parseDate(s.date);
         if (d && !isNaN(d.getTime())) {
           const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
           monthsSet.add(key);
@@ -126,7 +143,8 @@
       }
     });
     
-    const months = Array.from(monthsSet).sort().reverse();
+    // Ordena os meses do mais recente para o mais antigo
+    const months = Array.from(monthsSet).sort().reverse(); 
     const select = document.getElementById('filterMonth');
     
     // Limpa opções antigas (mantém apenas "Mês atual")
@@ -141,7 +159,13 @@
                           'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
       const label = `${monthNames[parseInt(month)-1]} ${year}`;
       const option = new Option(label, m);
-      select.add(option);
+      
+      // Adiciona apenas se não for o mesmo mês/ano que o "Mês atual" (para evitar repetição)
+      const now = new Date();
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      if (m !== currentMonthKey) {
+        select.add(option);
+      }
     });
   }
 
@@ -165,11 +189,14 @@
       const [year, month] = filterValue.split('-');
       filteredSales = sales.filter(s => {
         if (!s.date) return false;
-        const d = parseDataBrasileira(s.date);
+        const d = parseDate(s.date);
         if (!d || isNaN(d.getTime())) return false;
         return d.getFullYear() === parseInt(year) && d.getMonth() === parseInt(month) - 1;
       });
     }
+    
+    // Ordena as vendas filtradas
+    filteredSales.sort(compareDates);
 
     for (const s of filteredSales){
       const t = calcSaleTotals(s);
@@ -180,7 +207,7 @@
       const tr = document.createElement('tr');
       tr.className = 'border-t border-white/10';
       tr.innerHTML = `
-        <td class="p-3">${s.date||''}</td>
+        <td class="p-3">${formatDate(s.date||'')}</td>
         <td class="p-3">${s.os||''}</td>
         <td class="p-3">${(s.products||[]).map(p=>p.name).join(', ')}</td>
         <td class="p-3 text-right">${fmt.format(t.totCusto)}</td>
@@ -192,18 +219,4 @@
     }
 
     const tVenda = sum(filteredSales, s=>calcSaleTotals(s).totVenda);
-    const tCusto = sum(filteredSales, s=>calcSaleTotals(s).totCusto);
-    const tTaxa  = sum(filteredSales, s=>calcSaleTotals(s).totTaxa);
-    const tLucro = tTaxa - tCusto;
-    document.getElementById('tCusto').textContent = fmt.format(tCusto);
-    document.getElementById('tVenda').textContent = fmt.format(tVenda);
-    document.getElementById('tTaxa').textContent = fmt.format(tTaxa);
-    document.getElementById('tLucro').textContent = fmt.format(tLucro);
-  }
-
-  document.getElementById('filterMonth').addEventListener('change', render);
-  document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
-  window.addEventListener('load', render);
-</script>
-</body>
-</html>
+    const tCusto = sum(filteredSales
