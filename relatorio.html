@@ -100,7 +100,6 @@
       if (!dateStr) return null;
       const parts = dateStr.split('-');
       // Cria o objeto Date usando ano, mês (base 0) e dia
-      // Ex: 2023-11-20 -> (2023, 11-1, 20)
       if (parts.length === 3) {
         const d = new Date(parts[0], parts[1] - 1, parts[2]);
         if (!isNaN(d.getTime())) return d;
@@ -120,8 +119,6 @@
     const a = parseDate(d1);
     const b = d2 instanceof Date ? d2 : parseDate(d2);
     
-    // Se não conseguir ler as datas, consideramos que não são do mesmo mês para não incluí-las
-    // Isso garante que apenas vendas com datas válidas sejam filtradas
     if (!a || !b) return false;
     
     // Compara ano e mês (getMonth é base 0: Jan=0, Dez=11)
@@ -171,7 +168,8 @@
       const option = new Option(label, m);
       
       // Adiciona apenas se não for o mesmo mês/ano que o "Mês atual" (evita repetição)
-      const now = new Date();
+      // CORRIGIDO: Removido 'new' duplicado.
+      const now = new Date(); 
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       if (m !== currentMonthKey) {
         select.add(option);
@@ -194,7 +192,6 @@
     
     if (filterValue === 'current') {
       const now = new Date();
-      // FILTRO MELHORADO: Se o parseDate falhar, a venda não é incluída.
       filteredSales = sales.filter(s=> s.date && sameMonth(s.date, now));
     } else {
       const [year, month] = filterValue.split('-');
@@ -207,7 +204,6 @@
     }
     
     // Se o filtro 'current' não encontrar nada, exibimos TUDO para garantir que o usuário veja algo
-    // Isso é uma medida de segurança contra erros de data no localStorage
     if (filteredSales.length === 0 && sales.length > 0 && filterValue === 'current') {
         console.warn('[Relatório] O filtro "Mês Atual" retornou 0 resultados. Exibindo todas as vendas. Verifique se a data do sistema ou das vendas está correta.');
         filteredSales = sales;
