@@ -125,7 +125,7 @@
     return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth();
   }
   
-  // Função de comparação para ordenação: mais recente primeiro
+  // CORREÇÃO: Função de comparação para ordenação: mais antigo primeiro (CRESCENTE)
   const compareDates = (a, b) => {
       const dateA = parseDate(a.date);
       const dateB = parseDate(b.date);
@@ -134,7 +134,8 @@
       if (!dateA) return 1; 
       if (!dateB) return -1; 
       
-      return dateB.getTime() - dateA.getTime(); 
+      // ORDEM CRESCENTE: A - B
+      return dateA.getTime() - dateB.getTime(); 
   };
 
   function populateMonthFilter(sales) {
@@ -168,7 +169,6 @@
       const option = new Option(label, m);
       
       // Adiciona apenas se não for o mesmo mês/ano que o "Mês atual" (evita repetição)
-      // CORRIGIDO: Removido 'new' duplicado.
       const now = new Date(); 
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       if (m !== currentMonthKey) {
@@ -211,7 +211,7 @@
     
     console.log('[Relatório] Vendas filtradas para exibição:', filteredSales.length);
     
-    // Ordena as vendas filtradas
+    // Ordena as vendas filtradas: AGORA É CRESCENTE
     filteredSales.sort(compareDates);
 
     for (const s of filteredSales){
