@@ -86,20 +86,20 @@
       return [];
     }
   };
-
-  // NOVO: Função para formatar a data para dd/mm/aaaa
+  
+  // Função para formatar a data para dd/mm/aaaa
   const formatDate = (dateStr) => {
       if (!dateStr) return '';
       // Assume que a data está no formato yyyy-mm-dd
       const [year, month, day] = dateStr.split('-');
       return day && month && year ? `${day}/${month}/${year}` : dateStr;
   };
-  
-  // Função ajustada para garantir que a comparação de datas funcione corretamente
+
+  // Função para converter a data ISO (yyyy-mm-dd) em objeto Date
   const parseDate = (dateStr) => { 
       if (!dateStr) return null;
-      // Assume-se o formato yyyy-mm-dd
-      const d = new Date(dateStr + 'T00:00:00'); // Adiciona T00:00:00 para evitar problemas de fuso horário
+      // Adiciona T00:00:00 para evitar problemas de fuso horário
+      const d = new Date(dateStr + 'T00:00:00'); 
       if (!isNaN(d.getTime())) return d;
       return null;
   };
@@ -128,7 +128,7 @@
       if (!dateA) return 1; 
       if (!dateB) return -1; 
       
-      return dateB.getTime() - dateA.getTime(); // Mais recente primeiro
+      return dateB.getTime() - dateA.getTime(); 
   };
 
   function populateMonthFilter(sales) {
@@ -160,7 +160,7 @@
       const label = `${monthNames[parseInt(month)-1]} ${year}`;
       const option = new Option(label, m);
       
-      // Adiciona apenas se não for o mesmo mês/ano que o "Mês atual" (para evitar repetição)
+      // Adiciona apenas se não for o mesmo mês/ano que o "Mês atual" (evita repetição)
       const now = new Date();
       const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
       if (m !== currentMonthKey) {
@@ -170,8 +170,9 @@
   }
 
   async function render(){
+    // Garante que todas as vendas sejam carregadas
     const sales = loadLocal();
-    console.log('[v0] Relatório - renderizando', sales.length, 'vendas');
+    console.log('[v0] Relatório - total de vendas carregadas:', sales.length);
     
     // Popular o filtro com os meses disponíveis
     populateMonthFilter(sales);
@@ -184,9 +185,11 @@
     
     if (filterValue === 'current') {
       const now = new Date();
+      // O filtro agora usa parseDate() que lida corretamente com o formato ISO
       filteredSales = sales.filter(s=> s.date && sameMonth(s.date, now));
     } else {
       const [year, month] = filterValue.split('-');
+      // Filtro para mês específico
       filteredSales = sales.filter(s => {
         if (!s.date) return false;
         const d = parseDate(s.date);
@@ -194,6 +197,8 @@
         return d.getFullYear() === parseInt(year) && d.getMonth() === parseInt(month) - 1;
       });
     }
+    
+    console.log('[v0] Relatório - vendas filtradas:', filteredSales.length, 'para o período:', filterValue);
     
     // Ordena as vendas filtradas
     filteredSales.sort(compareDates);
@@ -219,4 +224,18 @@
     }
 
     const tVenda = sum(filteredSales, s=>calcSaleTotals(s).totVenda);
-    const tCusto = sum(filteredSales
+    const tCusto = sum(filteredSales, s=>calcSaleTotals(s).totCusto);
+    const tTaxa  = sum(filteredSales, s=>calcSaleTotals(s).totTaxa);
+    const tLucro = tTaxa - tCusto;
+    document.getElementById('tCusto').textContent = fmt.format(tCusto);
+    document.getElementById('tVenda').textContent = fmt.format(tVenda);
+    document.getElementById('tTaxa').textContent = fmt.format(tTaxa);
+    document.getElementById('tLucro').textContent = fmt.format(tLucro);
+  }
+
+  document.getElementById('filterMonth').addEventListener('change', render);
+  document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
+  window.addEventListener('load', render);
+</script>
+</body>
+</html>
