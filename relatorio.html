@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Relatório – Ótica Flow</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @media print{
+    /* Garante que elementos de navegação e filtro não sejam impressos */
+    #topbar, .no-print{ display:none !important; }
+    /* Estilo de impressão: fundo branco e texto preto */
+    body{ background:white !important; color:#111 !important; }
+    /* Totais sempre visíveis na impressão e em destaque */
+    #totaisMes{ 
+        display:block !important; 
+        border-color: #333 !important;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    table{ page-break-inside:auto; width: 100%; border-collapse: collapse; }
+    tr{ page-break-inside:avoid; page-break-after:auto }
+    /* Remove o fundo escuro da tabela para economia de tinta */
+    .tbl th{ background-color: #eee !important; color: #111 !important; border: 1px solid #ccc; }
+    .tbl td { border: 1px solid #ccc; }
+  }
+  body{ background:#0b1720; color:#e5edf4; font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  .card{ background:#0f1f2a; border:1px solid rgba(255,255,255,.08) }
+  .tbl th{background:#0f2630}
+  /* Removido o display:none inicial para ser controlado pelo CSS de impressão */
+  #totaisMes{ 
+      background-color: #1f3442;
+      color: #e5edf4;
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 0.5rem;
+  }
+</style>
+</head>
+<body>
+  <div id="topbar" class="sticky top-0 z-20 bg-black/30 backdrop-blur border-b border-white/10">
+    <div class="max-w-6xl mx-auto p-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo-otica-flow.png" class="h-8 w-8 object-contain" alt="Ótica Flow" />
+        <strong>Relatório – Ótica Flow</strong>
+      </div>
+      <div class="flex gap-2">
+        <a href="index.html" class="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600">← Voltar</a>
+        <button id="btnPrint" class="px-3 py-2 rounded-lg bg-white/90 text-slate-900 font-semibold">🖨️ Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-6xl mx-auto p-4 space-y-4">
+    <section class="card rounded-2xl p-5">
+      <div class="mb-3">
+        <h2 class="font-semibold">Vendas</h2>
+        <p class="text-sm opacity-70 no-print">Filtre o período e imprima o relatório mensal.</p>
+      </div>
+      
+      <div class="mb-4 flex items-center gap-3 no-print">
+        <label class="text-sm font-medium">Filtrar por período:</label>
+        <select id="filterMonth" class="px-3 py-2 rounded-lg bg-slate-700 border border-white/10">
+          <option value="current">Mês atual</option>
+        </select>
+      </div>
+      
+      <section id="totaisMes" class="p-4 mb-4 text-slate-100">
+        <h3 class="font-bold mb-2">Totais do período</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-lg">
+          <div><span class="font-semibold">Custo:</span> <span id="tCusto"></span></div>
+          <div><span class="font-semibold">Venda:</span> <span id="tVenda"></span></div>
+          <div><span class="font-semibold">Taxa:</span> <span id="tTaxa"></span></div>
+          <div><span class="font-semibold">Lucro:</span> <span id="tLucro"></span></div>
+        </div>
+      </section>
+
+      <div class="overflow-auto rounded-xl border border-white/10">
+        <table class="w-full text-sm tbl">
+          <thead>
+            <tr class="text-left">
+              <th class="p-3">Data</th><th class="p-3">OS</th><th class="p-3">Produtos</th>
+              <th class="p-3 text-right">Custo</th><th class="p-3 text-right">Venda</th>
+              <th class="p-3 text-right">Taxa</th><th class="p-3 text-right">Lucro</th><th class="p-3">Pagamentos</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+<script>
+  const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  const sum = (arr,sel) => arr.reduce((a,x)=>a+sel(x),0);
+
+  // --- CONFIGURAÇÃO FIREBASE (As mesmas chaves do index.html) ---
+  const firebaseConfig = {
+      apiKey: "AIzaSyBJDyAxsQObwKhphTfwk9vC_MTqKzaaMiA", 
+      authDomain: "otica-flow.firebaseapp.com", 
+      databaseURL: "https://otica-flow-default-rtdb.firebaseio.com", 
+      projectId: "otica-flow", 
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const salesRef = db.ref('vendas'); 
+  // --- FIM DA CONFIGURAÇÃO FIREBASE ---
+
+  // Função para formatar a data para dd/mm/aaaa
+  const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      // Assume que a data está no formato yyyy-mm-dd
+      const [year, month, day] = dateStr.split('-');
+      return day && month && year ? `${day}/${month}/${year}` : dateStr;
+  };
+
+  // Função para converter a data ISO (yyyy-mm-dd) em objeto Date
+  const parseDate = (dateStr) => { 
+      if (!dateStr) return null;
+      const parts = dateStr.split('-');
+      // Cria o objeto Date usando ano, mês (base 0) e dia
+      if (parts.length === 3) {
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        if (!isNaN(d.getTime())) return d;
+      }
+      return null;
+  };
+
+  function calcSaleTotals(sale) {
+    const totVenda = (sale.products||[]).reduce((a,p)=>a+(+p.price||0),0);
+    const totCusto = (sale.products||[]).reduce((a,p)=>a+(+p.cost||0),0);
+    const totTaxa  = (sale.products||[]).reduce((a,p)=>a+(+p.fee||0),0);
+    const lucro = totTaxa - totCusto;
+
+    // Lógica para verificar Custo Zero Não Confirmado
+    const isCostUnconfirmed = (sale.products || []).some(p => 
+        (+p.cost || 0) === 0 && !p.costZeroConfirmed
+    );
+    
+    return {totVenda, totCusto, totTaxa, lucro, isCostUnconfirmed};
+  }
+  
+  function sameMonth(d1, d2){
+    const a = parseDate(d1);
+    const b = d2 instanceof Date ? d2 : parseDate(d2);
+    
+    if (!a || !b) return false;
+    
+    // Compara ano e mês (getMonth é base 0: Jan=0, Dez=11)
+    return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth();
+  }
+  
+  // Função de comparação para ordenação: mais antigo primeiro (CRESCENTE)
+  const compareDates = (a, b) => {
+      const dateA = parseDate(a.date);
+      const dateB = parseDate(b.date);
+      
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1; 
+      if (!dateB) return -1; 
+      
+      // ORDEM CRESCENTE: A - B
+      return dateA.getTime() - dateB.getTime(); 
+  };
+
+  function populateMonthFilter(sales) {
+    const monthsSet = new Set();
+    sales.forEach(s => {
+      if (s.date) {
+        const d = parseDate(s.date);
+        if (d && !isNaN(d.getTime())) {
+          // A chave é yyyy-mm
+          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          monthsSet.add(key);
+        }
+      }
+    });
+    
+    // Ordena os meses do mais recente para o mais antigo
+    const months = Array.from(monthsSet).sort().reverse(); 
+    const select = document.getElementById('filterMonth');
+    
+    // Limpa opções antigas (mantém apenas "Mês atual")
+    while (select.options.length > 1) {
+      select.remove(1);
+    }
+    
+    // Adiciona os meses disponíveis
+    months.forEach(m => {
+      const [year, month] = m.split('-');
+      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
+                          'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      const label = `${monthNames[parseInt(month)-1]} ${year}`;
+      const option = new Option(label, m);
+      
+      // Adiciona apenas se não for o mesmo mês/ano que o "Mês atual" (evita repetição)
+      const now = new Date(); 
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+      if (m !== currentMonthKey) {
+        select.add(option);
+      }
+    });
+  }
+
+  async function render(sales){
+    console.log('[Relatório] Total de vendas carregadas:', sales.length);
+    
+    populateMonthFilter(sales);
+    
+    const rows = document.getElementById('rows');
+    rows.innerHTML = '';
+
+    const filterValue = document.getElementById('filterMonth').value;
+    let filteredSales;
+    
+    if (filterValue === 'current') {
+      const now = new Date();
+      filteredSales = sales.filter(s=> s.date && sameMonth(s.date, now));
+    } else {
+      const [year, month] = filterValue.split('-');
+      filteredSales = sales.filter(s => {
+        if (!s.date) return false;
+        const d = parseDate(s.date);
+        if (!d || isNaN(d.getTime())) return false;
+        return d.getFullYear() === parseInt(year) && d.getMonth() === parseInt(month) - 1;
+      });
+    }
+    
+    if (filteredSales.length === 0 && sales.length > 0 && filterValue === 'current') {
+        filteredSales = sales;
+    }
+    
+    filteredSales.sort(compareDates);
+
+    for (const s of filteredSales){
+      const t = calcSaleTotals(s);
+      const payStr = (s.payments||[]).map(p=>{
+        const parc = p.installments ? ` ${p.installments}` : '';
+        return `${p.method}${parc}: ${fmt.format(+p.amount||0)}`;
+      }).join(' • ');
+      
+      // Lógica do Alerta: Custo zero NÃO CONFIRMADO
+      const costAlert = t.isCostUnconfirmed ? ' ⚠️' : ''; 
+      
+      const tr = document.createElement('tr');
+      tr.className = 'border-t border-white/10';
+      tr.innerHTML = `
+        <td class="p-3">${formatDate(s.date||'')}</td>
+        <td class="p-3">${s.os||''}</td>
+        <td class="p-3">${(s.products||[]).map(p=>p.name).join(', ')}</td>
+        <td class="p-3 text-right">${fmt.format(t.totCusto)}${costAlert}</td>
+        <td class="p-3 text-right">${fmt.format(t.totVenda)}</td>
+        <td class="p-3 text-right">${fmt.format(t.totTaxa)}</td>
+        <td class="p-3 text-right">${fmt.format(t.lucro)}</td>
+        <td class="p-3">${payStr}</td>`;
+      rows.appendChild(tr);
+    }
+
+    const tVenda = sum(filteredSales, s=>calcSaleTotals(s).totVenda);
+    const tCusto = sum(filteredSales, s=>calcSaleTotals(s).totCusto);
+    const tTaxa  = sum(filteredSales, s=>calcSaleTotals(s).totTaxa);
+    const tLucro = tTaxa - tCusto;
+    document.getElementById('tCusto').textContent = fmt.format(tCusto);
+    document.getElementById('tVenda').textContent = fmt.format(tVenda);
+    document.getElementById('tTaxa').textContent = fmt.format(tTaxa);
+    document.getElementById('tLucro').textContent = fmt.format(tLucro);
+  }
+
+  // Listener para carregar dados e re-renderizar ao mudar o filtro de mês
+  document.getElementById('filterMonth').addEventListener('change', ()=> salesRef.once('value').then(snapshot => {
+    const data = snapshot.val();
+    const salesArray = data ? Object.values(data) : [];
+    render(salesArray);
+  }));
+  
+  document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
+  
+  // Carrega os dados do Firebase quando a página carrega
+  window.addEventListener('load', ()=>{
+    salesRef.once('value').then(snapshot => {
+        const data = snapshot.val();
+        const salesArray = data ? Object.values(data) : [];
+        render(salesArray);
+    }).catch(error => {
+        console.error("Erro ao carregar dados do Firebase:", error);
+        // Em caso de erro, renderiza uma tabela vazia
+        render([]); 
+    });
+  });
+</script>
+</body>
+</html>
